@@ -167,7 +167,7 @@ export function startTracing(target = document) {
   let last = 0;
   target.addEventListener("mousemove", (ev) => {
     const now = performance.now();
-    if (now - last < 16) return;
+    if (now - last < 6) return;
     last = now;
     push("mousemove")(ev);
   });
@@ -180,7 +180,76 @@ export function traceHeader() {
   return btoa(JSON.stringify(trace));
 }
 
+// --- 几何任务（L5 的 task 机制）---
+
+/** xorshift32。对应 gesture.xorshift32。用它而不是 sha256，是因为要同步算。 */
+function xorshift32(state) {
+  state = state >>> 0;
+  state = (state ^ (state << 13)) >>> 0;
+  state = (state ^ (state >>> 17)) >>> 0;
+  state = (state ^ (state << 5)) >>> 0;
+  return state >>> 0;
+}
+
+/**
+ * 由 (session, ts, nonce) 派生本次请求的路点。对应 gesture.derive_task。
+ *
+ * 注意路点**不保密**——客户端自己就能算，不用问服务端。难的不是知道去哪，
+ * 是必须真的花时间走过去。
+ */
+export function deriveWaypoints(session, ts, nonce, count = 4, width = 640, height = 360, tolerance = 18) {
+  let state = fnv1a(`${session}|${ts}|${nonce}`) >>> 0;
+  if (state === 0) state = 1; // xorshift 的 0 是吸收态
+  const margin = tolerance * 2;
+  const points = [];
+  for (let i = 0; i < count; i++) {
+    state = xorshift32(state);
+    const x = margin + (state % Math.max(1, width - 2 * margin));
+    state = xorshift32(state);
+    const y = margin + (state % Math.max(1, height - 2 * margin));
+    points.push([x, y]);
+  }
+  return points;
+}
+
+/**
+ * 驱动真实指针依次走过路点。
+ *
+ * 每一段用最小抖动剖面（起步慢、中段快、接近目标减速）。减速不是装饰：
+ * 服务端会检查路点附近的局部速度低于全程均速，匀速插值过不了。
+ *
+ * 这个函数必须由**真实的指针事件**来实现——在浏览器里就是等待 mousemove
+ * 真的发生。它花掉的墙钟时间是这一层无法压缩的成本。
+ */
+export async function performGesture(waypoints, stepMs = 20) {
+  const surface = document.getElementById("surface") || document.body;
+  let [cx, cy] = [waypoints[0][0], waypoints[0][1]];
+  for (const [tx, ty] of waypoints) {
+    const steps = 12 + Math.floor(Math.random() * 8);
+    const [sx, sy] = [cx, cy];
+    for (let i = 1; i <= steps; i++) {
+      const p = i / steps;
+      // 最小抖动：位移剖面 3p²-2p³，端点速度为 0 —— 天然满足"接近时减速"
+      const ease = p * p * (3 - 2 * p);
+      const jitter = (Math.random() - 0.5) * 2;
+      const x = Math.round(sx + (tx - sx) * ease + jitter);
+      const y = Math.round(sy + (ty - sy) * ease + jitter);
+      surface.dispatchEvent(
+        new MouseEvent("mousemove", { clientX: x, clientY: y, bubbles: true })
+      );
+      await new Promise((r) => setTimeout(r, stepMs));
+    }
+    [cx, cy] = [tx, ty];
+  }
+}
+
 // --- 签名请求 ---
+
+/** 读服务端种下的会话 cookie。几何任务的路点按它派生。 */
+function sessionId() {
+  const m = document.cookie.match(/(?:^|;\s*)bw_session=([^;]+)/);
+  return m ? m[1] : "";
+}
 
 let bootstrapCache = null;
 
@@ -214,6 +283,19 @@ export async function signedFetch(path, params = {}) {
   // 所以只要挑战可取就算上：拿不到（未启用）时 loadVm 返回 null，这里得空串。
   const token = await vmToken(ts, nonce);
   if (token) headers["X-BW-VM"] = token;
+
+  // L5 的 task 机制：路点由 (session, ts, nonce) 派生，所以必须在 ts/nonce
+  // 定下来之后才能走。这段手势会真的花掉几百毫秒——那正是这一层的成本所在。
+  const boot = await bootstrap();
+  if (boot.gesture && boot.gesture.enabled) {
+    const session = sessionId();
+    const g = boot.gesture;
+    const waypoints = deriveWaypoints(
+      session, ts, nonce, g.waypoints, g.canvas_width, g.canvas_height, g.tolerance
+    );
+    trace.length = 0; // 只保留本次手势，避免旧点把路点顺序搅乱
+    await performGesture(waypoints);
+  }
 
   let salt;
   if (saltMode === "static") {

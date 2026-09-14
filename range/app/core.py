@@ -109,6 +109,9 @@ class RangeState:
         # L3: nonce -> 首次出现时刻
         self.seen_nonces: dict[str, float] = {}
         self.nonce_ttl = nonce_ttl_seconds
+        # L5: 会话 id -> (首次出现的墙钟时刻, 累计声称的手势时长毫秒)
+        # 用于配速核对：声称走了 N 毫秒的手势，就得真的过去 N 毫秒。
+        self.gesture_budget: dict[str, tuple[float, float]] = {}
         # L6: 会话 id -> 待验证的挑战
         self.pending_challenges: dict[str, dict[str, Any]] = {}
         # 会话 id -> 累计风险分（form=score 时使用）
@@ -139,11 +142,29 @@ class RangeState:
         self.seen_nonces[nonce] = now
         return True
 
+    # --- L5 ---
+
+    def claim_gesture_time(self, session: str, now: float, claimed_ms: float) -> tuple[bool, float]:
+        """登记一次手势时长，并核对它是否真的过去了。
+
+        声称走了 N 毫秒的手势，就得真的过去 N 毫秒——否则一个会话可以在两秒内
+        提交十条各称 800ms 的轨迹，而那在物理上不可能。
+
+        返回 (是否在预算内, 超支的毫秒数)。
+        """
+        first_seen, spent = self.gesture_budget.get(session, (now, 0.0))
+        elapsed_ms = (now - first_seen) * 1000.0
+        total = spent + claimed_ms
+        self.gesture_budget[session] = (first_seen, total)
+        # 首次请求时 elapsed 必然是 0，所以给一个宽限：允许预支一次手势的时长
+        return total <= elapsed_ms + claimed_ms, total - (elapsed_ms + claimed_ms)
+
     def reset(self) -> None:
         """清空全部状态。用于测试之间的隔离。"""
         self.request_times.clear()
         self.ip_sessions.clear()
         self.seen_nonces.clear()
+        self.gesture_budget.clear()
         self.pending_challenges.clear()
         self.session_risk.clear()
 

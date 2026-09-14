@@ -1,0 +1,48 @@
+name: gesture-guarded
+version: 1
+description: >-
+  L5 用几何任务：服务端每请求指定一组新鲜路点，轨迹必须真的依次走过去，
+  接近时减速，且用时不短于路径长度所需；再加配速核对——声称走了 N 毫秒，
+  就得真的过去 N 毫秒。
+  与 vm-guarded 的性质不同：路点不保密，成本不在"不知道怎么算"，
+  在"必须真的花时间"。这一层把攻击成本变成无法压缩的墙钟时间。
+form: gate
+mode: diagnostic
+
+layers:
+  l1_network:
+    strength: strict
+    options:
+      window_seconds: 60
+      max_requests: 120
+      reject_datacenter: true
+      allow_local: true
+
+  l2_transport:
+    strength: strict
+    options:
+      fingerprints: builtin:demo
+
+  l3_protocol:
+    strength: strict
+    options:
+      salt_mode: derived
+      seed: bw-gesture-seed-2a91
+      ts_window_seconds: 120   # 手势要走几百毫秒，窗口给宽一点
+
+  l4_runtime:
+    strength: off
+
+  l5_behavior:
+    strength: strict
+    options:
+      mechanism: task
+      waypoints: 4
+      canvas_width: 640
+      canvas_height: 360
+      tolerance: 18
+      px_per_ms: 3.0
+      decel_ratio: 0.85
+
+  l6_captcha:
+    strength: off

@@ -1,8 +1,21 @@
-"""L5 行为层 —— 只看交互事件序列的统计特征。
+"""L5 行为层 —— 判定"这条交互轨迹是不是真的人做出来的"。
 
-判据全部是分布层面的，不看单个事件。原因很简单：单个事件可以随便伪造，
-而让一整串事件的间隔分布、路径曲率、加速度连续性同时像人，需要真正驱动
-一个浏览器并产生可信交互。
+两种机制，用 options.mechanism 选择：
+
+  stats  只看统计特征：事件间隔分布、路径曲率、速度连续性。判据全是分布层面
+         的，单个事件伪造不了整体形状。
+         **但这终究是"校验声明"**——合成一条统计特征漂亮的轨迹就能过
+         （harness 里的 traced.py 正是这么干的），而且同一条轨迹可以反复用。
+
+  task   服务端每请求指定一组新鲜的路点，轨迹必须真的依次经过它们，接近时
+         减速，且用时不短于路径长度所需。再加一道**配速核对**：声称走了
+         N 毫秒的手势，就得真的过去 N 毫秒。见 app/gesture.py。
+
+  both   两者都要过。
+
+task 与 VM 挑战的性质不同：路点**不保密**（客户端自己就能算），难的不是知道
+去哪，而是**必须真的花时间走过去**。它更像工作量证明——把攻击成本从"一次性
+合成一条轨迹"抬成"每请求付出无法压缩的墙钟时间"。
 
 被本层拦住意味着需要真浏览器 + 可信交互，这是成本阶梯上最贵的一级。
 """
@@ -15,6 +28,7 @@ import json
 import math
 from typing import Any, ClassVar
 
+from .. import gesture
 from ..core import Probe, RangeState, Strength, Verdict
 from .base import Layer
 
@@ -74,7 +88,92 @@ class BehaviorLayer(Layer):
     #: 一次可信的点击至少要经历的事件序列
     REQUIRED_SEQUENCE: ClassVar[tuple[str, ...]] = ("mousemove", "mousedown", "mouseup", "click")
 
+    @property
+    def mechanism(self) -> str:
+        value = self.opt("mechanism", "stats")
+        if value not in ("stats", "task", "both"):
+            raise ValueError(f"{self.id}: 未知的 mechanism {value!r}")
+        return value
+
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
+        mechanism = self.mechanism
+        if mechanism in ("task", "both"):
+            verdict = self._inspect_task(probe, state)
+            if not verdict.passed:
+                return verdict
+            if mechanism == "task":
+                return verdict
+        return self._inspect_stats(probe)
+
+    # --- task 机制：走过服务端指定的路点 ---
+
+    def _inspect_task(self, probe: Probe, state: RangeState) -> Verdict:
+        session = probe.cookies.get("bw_session") or probe.header("x-bw-session")
+        if not session:
+            return self._fail(
+                "gesture_session_missing",
+                score=float(self.opt("missing_score", 1.0)),
+                hint="几何任务按会话派生，需要 bw_session cookie 或 X-BW-Session 头",
+            )
+
+        trace = self._decode_trace(probe)
+        if trace is None:
+            return self._fail("trace_missing", score=float(self.opt("missing_score", 1.0)))
+
+        # ts 与 nonce 只作为路点的派生输入，不在这里做时效判定——那是 L3 的维度。
+        # 它们参与派生是为了让**每个请求的路点都不同**，合成好的轨迹用不了第二次。
+        ts = probe.header("x-bw-ts")
+        nonce = probe.header("x-bw-nonce")
+        task = gesture.derive_task(
+            session,
+            ts,
+            nonce,
+            count=int(self.opt("waypoints", 4)),
+            width=int(self.opt("canvas_width", 640)),
+            height=int(self.opt("canvas_height", 360)),
+            tolerance=int(self.opt("tolerance", 18)),
+        )
+
+        result = gesture.verify(
+            task,
+            trace,
+            px_per_ms=float(self.opt("px_per_ms", 3.0)),
+            decel_ratio=float(self.opt("decel_ratio", 0.85)),
+        )
+        if not result.ok:
+            return self._fail(
+                result.reason, score=float(self.opt("task_score", 1.0)), **(result.detail or {})
+            )
+
+        # 配速核对：声称走了 N 毫秒，就得真的过去 N 毫秒。
+        # 这是本机制里攻击方**唯一无法靠写代码压缩**的成本。
+        claimed = float((result.detail or {}).get("duration_ms", 0.0))
+        within, overspend = state.claim_gesture_time(session, probe.received_at, claimed)
+        if not within:
+            return self._fail(
+                "gesture_pace_impossible",
+                score=float(self.opt("pace_score", 1.0)),
+                claimed_ms=claimed,
+                overspend_ms=round(overspend, 1),
+                hint="该会话声称的手势总时长超过了它实际存在的时间",
+            )
+
+        return self._ok(mechanism="task", waypoints=len(task.waypoints), duration_ms=claimed)
+
+    @staticmethod
+    def _decode_trace(probe: Probe) -> list[dict] | None:
+        raw = probe.header("x-bw-trace")
+        if not raw:
+            return None
+        try:
+            trace = json.loads(base64.b64decode(raw, validate=True))
+        except (binascii.Error, ValueError, UnicodeDecodeError):
+            return None
+        return trace if isinstance(trace, list) else None
+
+    # --- stats 机制：统计特征 ---
+
+    def _inspect_stats(self, probe: Probe) -> Verdict:
         raw = probe.header("x-bw-trace")
         if not raw:
             return self._fail("trace_missing", score=float(self.opt("missing_score", 1.0)))

@@ -30,7 +30,7 @@ from . import __version__, assets, data, vm
 from .config import Profile, list_profiles, load_profile
 from .core import Probe, RangeState
 from .gate import Gate, GateResult
-from .layers import ProtocolLayer, RuntimeLayer, build_layers
+from .layers import BehaviorLayer, ProtocolLayer, RuntimeLayer, build_layers
 
 RANGE_ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "bw_session"
@@ -204,11 +204,21 @@ async def bootstrap(request: Request) -> Response:
     的变换以及签名的序列化规则。
     """
     layer = next((l for l in active_layers if isinstance(l, ProtocolLayer)), None)
+    behavior = next((l for l in active_layers if isinstance(l, BehaviorLayer)), None)
+    gesture_on = behavior is not None and behavior.mechanism in ("task", "both")
     response = JSONResponse(
         {
             "seed": layer.seed if layer else None,
             "salt_mode": layer.salt_mode if layer else None,
             "ts_window_seconds": layer.ts_window if layer else None,
+            # 几何任务的参数是公开的：路点不保密，成本在于必须真的走过去
+            "gesture": {
+                "enabled": gesture_on,
+                "waypoints": int(behavior.opt("waypoints", 4)) if gesture_on else 0,
+                "canvas_width": int(behavior.opt("canvas_width", 640)) if gesture_on else 0,
+                "canvas_height": int(behavior.opt("canvas_height", 360)) if gesture_on else 0,
+                "tolerance": int(behavior.opt("tolerance", 18)) if gesture_on else 0,
+            },
         }
     )
     _ensure_session(request, response)
