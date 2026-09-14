@@ -26,7 +26,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, data
+from . import __version__, assets, data
 from .config import Profile, list_profiles, load_profile
 from .core import Probe, RangeState
 from .gate import Gate, GateResult
@@ -117,6 +117,23 @@ async def index() -> dict[str, Any]:
         "available_profiles": list_profiles(),
         "note": "本靶场仅用于本地成本测量，不针对任何第三方服务。见 docs/04-scope.md。",
     }
+
+
+@app.get("/assets/{name}")
+async def asset(name: str) -> Response:
+    """页面资产（JS/CSS/图片/字体）。
+
+    只有真浏览器加载落地页时才会拉这些——纯 HTTP 攻击实现直接打 /api/items，
+    不碰这里。二者的字节差就是"能不能不用浏览器"在成本上的物理基础，
+    由计量代理如实记账。内容确定性生成，不落盘。见 app/assets.py。
+    """
+    if name not in assets.asset_names():
+        return JSONResponse({"error": "unknown asset"}, status_code=404)
+    return Response(
+        content=assets.asset_bytes(name),
+        media_type=assets.content_type(name),
+        headers={"Cache-Control": "no-store"},  # 每次都过线，模拟冷缓存采集
+    )
 
 
 @app.get("/meta/profile")

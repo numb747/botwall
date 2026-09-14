@@ -11,10 +11,23 @@
   <head>
     <meta charset="utf-8" />
     <title>CostLadder Range</title>
+    <!--
+      真实站点首屏要加载的一整套资产。纯 HTTP 攻击实现只打 /api/items，不会碰
+      这些；真浏览器加载本页时会全部拉下来。二者的字节差就是"能不能不用浏览器"
+      在成本上的物理基础，由计量代理如实记账。资产内容由 app/assets.py 确定性
+      生成，尺寸用 CL_PAGE_WEIGHT 缩放。
+    -->
+    <link rel="stylesheet" href="/assets/app.css" />
+    <link rel="preload" as="font" href="/assets/font-latin.woff2" crossorigin />
+    <link rel="preload" as="font" href="/assets/font-cjk.woff2" crossorigin />
+    <script src="/assets/vendor.js" defer></script>
+    <script src="/assets/app.js" defer></script>
   </head>
   <body>
     <h1>CostLadder Range</h1>
     <p id="status">loading…</p>
+    <img src="/assets/hero.jpg" alt="hero" width="640" height="200" />
+    <img src="/assets/sprite.png" alt="sprite" width="64" height="64" />
     <div id="surface" style="width: 640px; height: 360px; background: #f0f0f0">
       在这块区域移动指针会被 startTracing 记录，signedFetch 时作为 X-CL-Trace 提交。
     </div>
