@@ -1,0 +1,40 @@
+name: api-signed
+version: 1
+description: >-
+  国内主流内容平台 Web 端的典型形态：网络层限流 + 传输层指纹校验 + 协议层请求签名。
+  真实门槛在 L3，不在验证码。本 profile 是整个项目的主测对象。
+form: gate
+mode: diagnostic
+
+layers:
+  l1_network:
+    strength: strict
+    options:
+      window_seconds: 60
+      max_requests: 120
+      reject_datacenter: true
+      allow_local: true
+
+  l2_transport:
+    strength: strict
+    options:
+      fingerprints: builtin:demo
+
+  l3_protocol:
+    strength: strict
+    options:
+      # derived 档：salt 由 seed 经变换得到，可静态逆向但要读懂混淆代码。
+      # 把它改成 runtime 就会把攻击方从阶梯 L1 顶到 L3——这是本项目
+      # 最值得扫描的一个参数。
+      salt_mode: derived
+      seed: cl-demo-seed-7f3a
+      ts_window_seconds: 60
+
+  l4_runtime:
+    strength: off
+
+  l5_behavior:
+    strength: off
+
+  l6_captcha:
+    strength: off

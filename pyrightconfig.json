@@ -1,0 +1,9 @@
+{
+  "venvPath": "range",
+  "venv": ".venv",
+  "include": ["range"],
+  "exclude": ["**/__pycache__", "**/.venv"],
+  "extraPaths": ["range"],
+  "typeCheckingMode": "standard",
+  "reportMissingImports": "error"
+}

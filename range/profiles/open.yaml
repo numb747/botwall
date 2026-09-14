@@ -1,0 +1,6 @@
+name: open
+version: 1
+description: 全层关闭。基线 profile，用于测量不受任何防御影响的纯采集成本。
+form: gate
+mode: diagnostic
+layers: {}

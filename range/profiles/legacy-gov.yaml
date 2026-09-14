@@ -1,0 +1,36 @@
+name: legacy-gov
+version: 1
+description: >-
+  政企与传统行业后台的典型形态：宽松限流 + 老式图片验证码。
+  保留这个 profile 是为了如实反映一个事实——服务端生成的图片验证码在面向
+  消费者的大流量站点已基本绝迹，但在招投标、司法文书、工商、教务、银行后台
+  仍大量存在，而那正是相当一部分采集业务的实际目标。
+form: score
+mode: diagnostic
+score_threshold: 1.0
+captcha_trigger_score: 0.5
+
+layers:
+  l1_network:
+    strength: lenient
+    options:
+      window_seconds: 60
+      max_requests: 30
+      rate_score: 0.6
+
+  l2_transport:
+    strength: off
+  l3_protocol:
+    strength: off
+  l4_runtime:
+    strength: off
+  l5_behavior:
+    strength: off
+
+  l6_captcha:
+    # static_image 题型尚未实现（需要图像渲染依赖），暂用 pow 占位。
+    # 见 range/app/layers/l6_captcha.py 的 issue_challenge。
+    strength: lenient
+    options:
+      kind: pow
+      pow_difficulty: 16

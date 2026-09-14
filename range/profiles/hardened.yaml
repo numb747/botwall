@@ -1,0 +1,67 @@
+name: hardened
+version: 1
+description: >-
+  高价值目标：六层全开，评分形态。单层失败可被其他层的高保真度补偿，
+  因此归因困难——这正是要测的东西。与 gate 形态下同一套攻击实现的成本差，
+  本身就是一个值得发表的结果。
+form: score
+mode: diagnostic
+score_threshold: 1.0
+captcha_trigger_score: 0.6
+
+layers:
+  l1_network:
+    strength: paranoid
+    options:
+      window_seconds: 60
+      max_requests: 60
+      reject_datacenter: true
+      allow_local: true
+      max_sessions_per_ip: 2
+      rate_score: 0.5
+      datacenter_score: 1.0
+      concurrency_score: 0.4
+
+  l2_transport:
+    strength: paranoid
+    options:
+      fingerprints: builtin:demo
+      script_client_score: 1.0
+      allowlist_score: 0.8
+      mismatch_score: 0.8
+
+  l3_protocol:
+    strength: strict
+    options:
+      # runtime 档：salt 的一部分取自浏览器运行时环境，JS 里拿不到完整值。
+      # 这是 L3 与 L4 的耦合点，也是最难降级的形态——攻击方被顶到阶梯 L3+。
+      salt_mode: runtime
+      seed: cl-demo-seed-9e21
+      ts_window_seconds: 45
+      score: 1.0
+
+  l4_runtime:
+    strength: paranoid
+    options:
+      automation_score: 1.0
+      missing_score: 0.8
+      collect_ms_min: 0.5
+      collect_ms_max: 500
+
+  l5_behavior:
+    strength: paranoid
+    options:
+      min_events: 12
+      min_interval_cv: 0.30
+      max_straightness: 0.97
+      min_speed_cv: 0.25
+      missing_score: 0.7
+      interval_score: 0.6
+
+  l6_captcha:
+    strength: strict
+    options:
+      kind: slider
+      slider_tolerance: 5
+      min_interval_cv: 0.25
+      max_straightness: 0.99

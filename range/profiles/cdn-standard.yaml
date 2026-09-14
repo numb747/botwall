@@ -1,0 +1,31 @@
+name: cdn-standard
+version: 1
+description: >-
+  挂了标准 CDN 防护的普通站点：只有网络层和传输层。
+  用于演示成本阶梯上最容易被误判的一跳——在 L2 被拦，正确应对是换一个具备
+  指纹伪装能力的 HTTP 客户端（成本增量≈0），而不是上浏览器（约 50 倍成本）。
+form: gate
+mode: diagnostic
+
+layers:
+  l1_network:
+    strength: strict
+    options:
+      window_seconds: 60
+      max_requests: 60
+      reject_datacenter: true
+      allow_local: true
+
+  l2_transport:
+    strength: paranoid
+    options:
+      fingerprints: builtin:demo
+
+  l3_protocol:
+    strength: off
+  l4_runtime:
+    strength: off
+  l5_behavior:
+    strength: off
+  l6_captcha:
+    strength: off

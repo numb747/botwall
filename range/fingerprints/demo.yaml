@@ -1,0 +1,27 @@
+# CostLadder 演示指纹集
+#
+# ⚠️ 下面的 JA3 值全部是**占位符**，不是真实浏览器或客户端的指纹。
+#    它们够跑通 L2 的判定逻辑，但用它们测出来的数据不具备对外可比性。
+#
+# 要得到可用于测量的真实值，用 tlsfront 从你自己的浏览器和 HTTP 客户端录制，
+# 生成一份 fingerprints/local.yaml，再在 profile 里引用 `builtin:local`。
+# 录制方法见 range/fingerprints/README.md。
+#
+# 之所以不在仓库里预置真实 JA3：这类指纹随浏览器版本变化，写死在仓库里
+# 几个月就过期，而过期的指纹会让 L2 的测量结果系统性偏高（真浏览器也被拦）。
+# 让使用者录制自己的，是唯一能保证数据有效的做法。
+
+# ja3 -> 客户端名。命中即判定为脚本库，不看强度档。
+script_clients:
+  PLACEHOLDER_JA3_PYTHON_REQUESTS: "python-requests"
+  PLACEHOLDER_JA3_PYTHON_URLLIB: "python-urllib3"
+  PLACEHOLDER_JA3_GO_DEFAULT: "go-net-http"
+  PLACEHOLDER_JA3_NODE_UNDICI: "node-undici"
+  PLACEHOLDER_JA3_CURL: "curl"
+
+# ja3 -> 浏览器族。strict 档要求命中本表；paranoid 档还要求与 UA 声明一致。
+browsers:
+  PLACEHOLDER_JA3_CHROME_142: "chrome"
+  PLACEHOLDER_JA3_FIREFOX_140: "firefox"
+  PLACEHOLDER_JA3_SAFARI_18: "safari"
+  PLACEHOLDER_JA3_EDGE_142: "edge"
