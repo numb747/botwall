@@ -81,11 +81,29 @@ node-https      74fc12d4399034848f23564f342e65b9
 
 最容易致命的一处是 **GREASE 剔除**（RFC 8701）：浏览器每次连接都会随机插保留值，不剔除的话同一个浏览器每次算出的 JA3 都不同，机制作废——症状还是"偶尔拦错人"，极难排查。
 
-录制自己机器的指纹集：
+#### 让 L2 对你机器为真：录制指纹集
+
+默认 profile 用的 `demo.yaml` 全是**占位符**——开箱即用、不依赖你的环境，但也因此 **L2 的测量数据不具备对外可比性**。要让它变成真的，录一份自己的：
 
 ```bash
-cd range && python -m tlsfront record --out ../fingerprints/local.yaml
+cd range
+python -m tools.record_fingerprints --out fingerprints/local.yaml
 ```
+
+它会自动驱动本机上找得到的每个客户端各连一次：
+
+```
+python-urllib        e13a080178d6052cad07cde7ba6232d0
+curl                 cd911cdb3ae1af6c7bc940cdcad83a1a
+node-https           74fc12d4399034848f23564f342e65b9
+chromium-headless    c8fc783bd9c1a321133ac74bcda58eb1
+```
+
+然后把 profile 里的 `fingerprints: builtin:demo` 改成 `builtin:local`。
+
+本机装的 Chrome / Firefox / Safari 本体、以及 `curl_cffi` 的各个 impersonate 目标自动录不到（需要图形界面或额外装包）——用交互式的 `python -m tlsfront record` 补录，格式一样可以合并。
+
+仓库里的 [`recorded-example.yaml`](range/fingerprints/recorded-example.yaml) 是在一台 Linux 机器上录的**真实**指纹，可以直接对比真浏览器与脚本客户端的 `ja3_string` 差多少（Chromium 的密码套件明显更少、扩展顺序也不同，这正是 L2 判定的依据）。**但别直接拿它用**——你的客户端版本一旦不同，真浏览器就会被判为"不在白名单"。每条记录都带了录制时的版本号，就是为了让这种过期可被发现。
 
 ### 图片验证码：把"这个范式已经死了"做成可以跑的
 
@@ -119,7 +137,7 @@ $ cd range && python -m tools.captcha_dataset --count 5000 --out /tmp/ds --diffi
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e range -e harness pytest
-.venv/bin/python -m pytest                              # 168 passed
+.venv/bin/python -m pytest                              # 180 passed
 ```
 
 ### 一、看成本决策表（附带工具）
@@ -215,17 +233,18 @@ v0.1，靶场六层可用（含随机化 VM 挑战），附带的成本 harness 
 - **交叉点分析**：`browser` 与 `signed` 是两条相反的经济路径（边际成本 vs 一次性逆向工时）。`browser` 加载整页约 800 KB 资产，边际成本实测是 `signed` 的约 48 倍。模型给出"采集量大到多少才值得逆向"的量化答案，且强烈依赖代理档位——datacenter 档约 8.5 亿条/年，residential 档约 1500 万条/年（代理越贵，逆向越早回本）
 - **tlsfront**：TLS 终结代理，用 MemoryBIO 在握手完成前截获 ClientHello 算 JA3，含 GREASE 剔除
 - **图片验证码**：L6 的 `static_image`，确定性渲染 + 三档难度，配数据集导出工具把"训练集免费"做成可跑的论证
-- 168 项测试，含端到端、跨语言（Python↔Node）VM 一致性比对、多客户端真实 TLS 指纹比对
+- **指纹集录制**：`tools.record_fingerprints` 自动驱动本机各客户端（含真 Chromium）录出真实 JA3
+- 180 项测试，含端到端、跨语言（Python↔Node）VM 一致性比对、多客户端真实 TLS 指纹比对
 
 **未完成**
 - **引入真实代理延迟与失败率**。整页流量已建模（`browser` 加载约 800 KB 资产，边际成本实测约为 `signed` 的 48 倍），但页面权重是可调估计值、且未含代理延迟——这是交叉点数字的主要不确定来源
-- 真实指纹集录制。`fingerprints/demo.yaml` 全是占位符，不是真实 JA3——用 `python -m tlsfront record` 录自己的。在填好之前，**L2 的测量数据不具备对外可比性**
 - HTTP/2 指纹（Akamai 指纹）。当前只做了 JA3，tlsfront 转发时降级为 HTTP/1.1
 - 容器化 + cgroup 计量（当前用 `getrusage`，能透传捕获 chromium 的 CPU，但隔离不彻底，且只支持 Python 攻击实现）
 - LLM token 计量，用于接入 VLM 类攻击实现
 - `sign.js` 的混淆构建。当前可读，因此 `derived` 档的逆向难度被显著低估
 
 **已知限制**
+- 默认 profile 用占位指纹集，所以**开箱状态下 L2 的数据不可对外引用**。录一份自己的即可转为真实（见上文）
 - 靶场状态存在进程内存，多 worker 部署会让频率统计和 nonce 重放表失效，默认单 worker 运行
 - `browser` 过不了 `hardened` 的 paranoid WebGL 校验（headless 软件渲染）——这是有意暴露的边界：运行时层严格档要逼出的是真实 GPU / 真实设备
 - `enveloped`/`traced` 的合成手段过得了靶场、过不了真实防御，所以它们的成本是下界

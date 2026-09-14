@@ -111,7 +111,15 @@ node-https      74fc12d4399034848f23564f342e65b9
 
 三者互异、各自稳定。而且**换 UA 换不掉 TLS 指纹**——这正是交叉校验（UA 自称 Chrome、握手却是 curl 的形状）能成立的根本原因：伪造方改不动握手。
 
-**录制自己的指纹集**：`python -m tlsfront record --out ../fingerprints/local.yaml`，然后用你要测的每个客户端各访问一次。仓库内置的 `demo.yaml` 全是占位符，不是真实 JA3——真实值随浏览器版本变化，写死在仓库里几个月就过期，而过期的指纹会让真浏览器也被拦。
+**录制自己的指纹集**
+
+```bash
+cd range && python -m tools.record_fingerprints --out fingerprints/local.yaml
+```
+
+自动驱动本机上找得到的每个客户端各连一次（Python ssl / curl / Node / Playwright Chromium）。本机安装的 Chrome / Firefox / Safari 本体和 `curl_cffi` 的 impersonate 目标录不到，用交互式的 `python -m tlsfront record` 补录，格式一致可合并。
+
+默认 profile 用的 `demo.yaml` 全是占位符——开箱即用但 **L2 的数据不可对外引用**。`recorded-example.yaml` 是一台 Linux 机器上录的真实指纹，可作对照，但别直接拿来用：客户端版本一变 JA3 就对不上，真浏览器会被判为不在白名单。每条记录都带录制时的版本号，就是为了让这种过期可被发现。
 
 **原因码**：`ja3_known_script_client` / `ja3_not_in_allowlist` / `ja3_ua_mismatch` / `h2_fingerprint_mismatch`
 
