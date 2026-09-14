@@ -1,0 +1,30 @@
+[project]
+name = "costladder-harness"
+version = "0.1.0"
+description = "CostLadder harness：强制计量的采集成本阶梯扫描"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0",
+    # 靶场本身。harness 需要它的 verify_record 来分辨真值与投毒数据，
+    # 也需要启动它作为被测对象。
+    "costladder-range",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+costladder = "costladder_harness.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["costladder_harness*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "e2e: 端到端测试，会真的启动靶场进程（较慢）。跳过用 -m 'not e2e'",
+]

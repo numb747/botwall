@@ -68,29 +68,40 @@
 ## 快速开始
 
 ```bash
-cd range
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest            # 38 passed
-
-# 启动靶场
-CL_PROFILE=api-signed .venv/bin/uvicorn app.main:app --port 8900
+python3 -m venv .venv && .venv/bin/pip install -e range -e harness pytest
+.venv/bin/python -m pytest range/tests harness/tests    # 71 passed
 ```
 
-另开一个终端，看一个什么都不做的采集器会得到什么：
+### 一、看成本决策表
 
 ```console
-$ .venv/bin/python -m tools.refclient --port 8900 --naive
-profile   : api-signed@v1  (diagnostic/gate)
-启用的层  : l1_network, l2_transport, l3_protocol
-客户端    : naive（裸 GET，无任何头）
+$ .venv/bin/costladder scan -p cdn-standard -p api-signed -n 100
 
-GET /api/items -> HTTP 403
-  被 l2_transport 拦住：ja3_absent  -> 换个客户端即可，不必升级架构（成本增量≈0）
+══ cdn-standard [diagnostic/gate] ══
+攻击实现      级    真值   请求      R     实测/万条   摊销/万条   合计/万条   主要拦截原因
+naive        L0      0     15      ∞           ∞       0.02         ∞    ja3_absent
+spoofed      L0    100      5   1.00×   1.25e-04       0.08      0.08    —
+signed       L1    100      6   1.00×   1.29e-04       0.96      0.96    —
+traced       L5    100      6   1.00×   1.80e-04       2.24      2.24    —
+
+  → 最优：spoofed（阶梯 L0），合计 0.08 / 万条
+     误判成本：错选 traced（L5）要多付 28.0 倍
 ```
 
-把 profile 换成六层全开的 `hardened`，归因会一次性列全（评分形态不会在第一层短路）：
+最后一行就是这个项目要防的那个误判，被量化了：在 L2 被拦时换个客户端库就够，误以为"要上浏览器"要多付 28 倍。`legacy-gov` 上这个倍数是 139。
+
+**实测列由 harness 强制计量，攻击实现无法影响；摊销列来自申报工时，harness 无法核实。两者永远分列，不混合。** 详见 [`harness/README.md`](harness/README.md)。
+
+### 二、看靶场的归因输出
+
+```bash
+CL_PROFILE=hardened .venv/bin/uvicorn app.main:app --port 8900 --app-dir range
+```
+
+另开终端，看一个什么都不做的采集器会得到什么：
 
 ```console
+$ cd range && ../.venv/bin/python -m tools.refclient --port 8900 --naive
 GET /api/items -> HTTP 403
   被 l2_transport 拦住：ja3_absent      -> 换个客户端即可，不必升级架构（成本增量≈0）
   被 l3_protocol 拦住：sign_missing     -> 需要爬到成本阶梯 L3
@@ -99,15 +110,15 @@ GET /api/items -> HTTP 403
   被 l6_captcha  拦住：captcha_required -> 需要爬到成本阶梯 L5
 ```
 
-再看 blind 模式下同一个请求：
+### 三、看 blind 模式怎么静默投毒
 
 ```console
-$ CL_MODE=blind ... && .venv/bin/python -m tools.refclient --port 8900 --naive
-GET /api/items -> HTTP 200
-取到 3 条，其中真值 0 条
-⚠️  收到投毒数据：HTTP 200 但内容是假的。
-   这就是 blind 模式——只统计状态码的采集器会悄无声息地采走垃圾。
+$ .venv/bin/costladder scan -p api-signed -a naive --mode blind -n 100
+naive       L0        0      5      ∞           ∞       0.02         ∞    —
+              ⚠ 收到 100 条投毒数据（HTTP 200 但内容是假的）
 ```
+
+HTTP 全 200、没有任何失败信号、归因栏是空的，而真值 0 条。**只统计状态码的采集器会悄无声息地采走垃圾**，并因此高估通过率、低估单位成本。
 
 ### 内置 profile
 
@@ -119,7 +130,7 @@ GET /api/items -> HTTP 200
 | `api-signed` | L1 + L2 + L3 | 国内主流内容平台 Web 端 |
 | `hardened` | 六层全开，评分形态 | 高价值目标 |
 
-Profile 是实验的自变量，成本是因变量。所有结果必须标注 `name@version`，否则不可比。
+Profile 是实验的自变量，成本是因变量。所有结果必须标注 `name@version` 与价格表版本，否则不可比。
 
 ---
 
@@ -138,23 +149,28 @@ Profile 是实验的自变量，成本是因变量。所有结果必须标注 `n
 
 ## 当前状态
 
-v0.1，靶场可用，成本测量部分未动工。
+v0.1，靶场与 harness 均可用，已能跑出第一组成本数据。
 
 **已完成**
-- 六层防御的完整实现，可独立开关、分 `lenient`/`strict`/`paranoid` 三档
-- `gate`/`score` 两种判定形态，`diagnostic`/`blind` 两种响应模式
-- 5 个内置 profile，38 项行为测试
-- 参考客户端（靶场的"标准答案"，用于验证链路，不是攻击实现）
+- **靶场**：六层防御，可独立开关、分 `lenient`/`strict`/`paranoid` 三档；`gate`/`score` 两种判定形态，`diagnostic`/`blind` 两种响应模式；5 个内置 profile
+- **harness**：强制计量的反向代理（攻击实现拿不到靶场真实地址，无法绕过计量）、成本模型、阶梯扫描、决策表输出
+- 5 个攻击实现构成完整阶梯（L0 → L5），彼此只差一个 `headers()` 方法
+- 71 项测试，含 7 项端到端
 
 **未完成**
-- `tlsfront`：解析 ClientHello 计算 JA3 的前置代理。在它就位前，L2 依赖客户端自报 `X-CL-JA3`（开发模式），**L2 的测量数据不具备对外可比性**
-- 真实指纹集录制。仓库内置的 `fingerprints/demo.yaml` 全是占位符，不是真实 JA3
-- `sign.js` 的混淆构建。当前版本可读，因此 `derived` 档的逆向难度被显著低估
+- **真实浏览器攻击实现（Playwright）——当前最大的缺口**。没有它，阶梯 L4/L5 的 ~50× 边际成本惩罚完全没有体现，上半段的成本差是假的
+- `tlsfront`：解析 ClientHello 计算 JA3 的前置代理。在它就位前 L2 依赖客户端自报 `X-CL-JA3`，**L2 的测量数据不具备对外可比性**
+- 真实指纹集录制。`fingerprints/demo.yaml` 全是占位符，不是真实 JA3
+- 容器化 + cgroup 计量（当前用 `getrusage`，够用但隔离不彻底，且只支持 Python 攻击实现）
+- LLM token 计量，用于接入 VLM 类攻击实现
+- `sign.js` 的混淆构建。当前可读，因此 `derived` 档的逆向难度被显著低估
 - L6 的 `static_image` 题型（需要图像渲染依赖）
-- **harness：成本核算与阶梯扫描。这是整个项目的主体，尚未开始**
 
 **已知限制**
-- 靶场状态存在进程内存，多 worker 部署会让频率统计和 nonce 重放表失效，默认以单 worker 运行
+- 靶场状态存在进程内存，多 worker 部署会让频率统计和 nonce 重放表失效，默认单 worker 运行
+- L4 的 `canvasHash` 判据只检查"非退化、长度足够"，可以直接编。要真正逼出浏览器，服务端需要持有设备类别到渲染结果的对照表并做实质校验
+- 靶场跑在 localhost，没有真实代理延迟与失败率；`--proxy-tier` 只是按字节数重算
+- `dev_hours` 是申报值，harness 核实不了。结论应对它做敏感性分析，而不是依赖单点值
 
 ---
 
@@ -164,6 +180,7 @@ v0.1，靶场可用，成本测量部分未动工。
 - [`docs/02-defense-layers.md`](docs/02-defense-layers.md) — 靶场分层设计规格
 - [`docs/03-cost-model.md`](docs/03-cost-model.md) — 单位成本公式与阶梯
 - [`docs/04-scope.md`](docs/04-scope.md) — 项目边界
+- [`harness/README.md`](harness/README.md) — 强制计量、攻击实现、实测结果与其局限
 
 ## License
 

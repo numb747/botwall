@@ -1,9 +1,9 @@
 {
-  "venvPath": "range",
+  "venvPath": ".",
   "venv": ".venv",
-  "include": ["range"],
-  "exclude": ["**/__pycache__", "**/.venv"],
-  "extraPaths": ["range"],
+  "include": ["range", "harness"],
+  "exclude": ["**/__pycache__", "**/.venv", "**/build"],
+  "extraPaths": ["range", "harness", "harness/attackers"],
   "typeCheckingMode": "standard",
   "reportMissingImports": "error"
 }

@@ -1,0 +1,51 @@
+# 攻击实现清单
+#
+# dev_hours 是**申报值**，harness 无法核实。它在成本输出里永远与实测量分开
+# 显示，绝不混合成一个数——否则读者无法判断哪部分可信。
+#
+# 申报口径：从"看到失败响应"到"稳定通过"的净工时，不含摸鱼和无关调试。
+# 逆向类工作的工时估计天然不精确，所以结论应当对 dev_hours 做敏感性分析，
+# 而不是依赖单点值。
+
+version: 1
+
+attackers:
+  naive:
+    entry: naive.py
+    rung: 0
+    dev_hours: 0.1
+    note: 裸 GET。基线，用于确认后面几级的额外成本全部来自防御而非实现复杂度。
+
+  spoofed:
+    entry: spoofed.py
+    rung: 0
+    dev_hours: 0.5
+    note: >-
+      加浏览器 UA 与 TLS 指纹。真实世界里就是从 requests 换到 curl_cffi，
+      成本增量接近零。整条阶梯上性价比最高的一级。
+
+  signed:
+    entry: signed.py
+    rung: 1
+    dev_hours: 6.0
+    note: >-
+      复现 derived 档签名。工时花在：抓包 diff 定位签名输入、确认序列化格式、
+      读 sign.js 的 deriveSalt 变换、处理时效与 nonce 重放。
+      这是唯一一项"规模越大回报越高"的能力。
+
+  enveloped:
+    entry: enveloped.py
+    rung: 4
+    dev_hours: 10.0
+    note: >-
+      伪造自洽的环境快照，并处理 runtime 档签名。工时与服务端的交叉校验项数
+      成正比——每多一项校验就要多对齐一个字段。
+
+  traced:
+    entry: traced.py
+    rung: 5
+    dev_hours: 14.0
+    note: >-
+      合成类人轨迹。工时主要花在搞清楚"随机化 sleep 不够，必须有加减速剖面"。
+      注意：真实的行为层防御会识破合成轨迹并逼出真浏览器，所以本实现测出的
+      L5 成本是**下界**，不是真实成本。
