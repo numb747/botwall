@@ -1,0 +1,48 @@
+name: vm-guarded
+version: 1
+description: >-
+  靶场里最硬的一档：L4 用 VM 机制，L3 的 salt 绑定 VM 执行结果。
+  不跑完服务端现场下发的随机字节码就签不出名——这是唯一一个纯靠构造 JSON
+  绝对过不去的 profile，必须有真实的 JS 运行时。
+  对应真实世界的瑞数五代 / acw_sc__v2 / a_bogus 那一类防御。
+form: gate
+mode: diagnostic
+
+layers:
+  l1_network:
+    strength: strict
+    options:
+      window_seconds: 60
+      max_requests: 120
+      reject_datacenter: true
+      allow_local: true
+
+  l2_transport:
+    strength: strict
+    options:
+      fingerprints: builtin:demo
+
+  l3_protocol:
+    strength: strict
+    options:
+      # vm 档：salt = f(derive_salt(seed), VM 执行结果)。
+      # 与 runtime 档的区别是关键——runtime 绑环境快照，手写一份自洽 JSON
+      # 就能过；vm 绑的是执行结果，只能真的跑出来。
+      salt_mode: vm
+      seed: cl-vm-seed-4c17
+      ts_window_seconds: 60
+
+  l4_runtime:
+    # strict 档：操作码编号逐会话打乱，写死的 VM 模拟器每次都会失效。
+    # 降到 lenient 则操作码表固定，攻击方写一次模拟器就能一劳永逸——
+    # 这两档的差别正是真实攻防里那条线。
+    strength: strict
+    options:
+      mechanism: vm
+      vm_seed: cl-vm-4c17
+
+  l5_behavior:
+    strength: off
+
+  l6_captcha:
+    strength: off

@@ -36,6 +36,16 @@ def derive_salt(seed: str) -> str:
     return hashlib.sha256(f"{seed[::-1]}{checksum}".encode("utf-8")).hexdigest()[:16]
 
 
+def vm_salt(seed: str, vm_token: str) -> str:
+    """`vm` 档的 salt：derived 的结果再与 VM 执行结果绑定。
+
+    这是 L3 与 L4 最强的耦合点：**不跑完 VM 就签不出名**。与 runtime 档
+    （绑环境快照，手写一份自洽 JSON 即可）不同，VM 的输出无法靠构造得到，
+    只能真的执行。
+    """
+    return hashlib.sha256((derive_salt(seed) + vm_token).encode("utf-8")).hexdigest()[:16]
+
+
 def runtime_salt(seed: str, env_snapshot: str) -> str:
     """`runtime` 档的 salt：derived 的结果再与环境快照绑定。
 
@@ -57,6 +67,7 @@ def compute(
     canonical_query: str,
     ts: str,
     nonce: str,
+    vm_token: str = "",
 ) -> str:
     """按档位算出期望签名。服务端与参考客户端共用这个入口。"""
     if salt_mode == "static":
@@ -65,6 +76,8 @@ def compute(
         salt = derive_salt(seed)
     elif salt_mode == "runtime":
         salt = runtime_salt(seed, env_snapshot)
+    elif salt_mode == "vm":
+        salt = vm_salt(seed, vm_token)
     else:
         raise ValueError(f"未知的 salt_mode: {salt_mode}")
     return sign(salt, canonical_payload(method, path, canonical_query, ts, nonce))

@@ -26,11 +26,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, assets, data
+from . import __version__, assets, data, vm
 from .config import Profile, list_profiles, load_profile
 from .core import Probe, RangeState
 from .gate import Gate, GateResult
-from .layers import ProtocolLayer, build_layers
+from .layers import ProtocolLayer, RuntimeLayer, build_layers
 
 RANGE_ROOT = Path(__file__).resolve().parent.parent
 SESSION_COOKIE = "cl_session"
@@ -95,11 +95,27 @@ async def make_probe(request: Request) -> Probe:
     )
 
 
-def _ensure_session(request: Request, response: Response) -> str:
-    session = request.cookies.get(SESSION_COOKIE)
-    if not session:
-        session = secrets.token_hex(8)
+def _session_id(request: Request) -> str:
+    """取会话 id；没有就现造一个。
+
+    与 _ensure_session 分开，是因为有些端点（如 VM 挑战）需要在**构造响应体
+    之前**就知道会话 id。以前只有 _ensure_session，调用方被迫先造一个空响应
+    去骗出 cookie、再把它的 headers 整套复制给真响应——而那套 headers 里带着
+    空响应的 Content-Length，于是真响应的长度对不上，ASGI 层直接报
+    "Response content longer than Content-Length"。
+    """
+    return request.cookies.get(SESSION_COOKIE) or secrets.token_hex(8)
+
+
+def _attach_session(request: Request, response: Response, session: str) -> None:
+    """只在会话是新造的时候种 cookie。不碰响应的其他头。"""
+    if request.cookies.get(SESSION_COOKIE) != session:
         response.set_cookie(SESSION_COOKIE, session, httponly=False, samesite="lax")
+
+
+def _ensure_session(request: Request, response: Response) -> str:
+    session = _session_id(request)
+    _attach_session(request, response, session)
     return session
 
 
@@ -117,6 +133,34 @@ async def index() -> dict[str, Any]:
         "available_profiles": list_profiles(),
         "note": "本靶场仅用于本地成本测量，不针对任何第三方服务。见 docs/04-scope.md。",
     }
+
+
+@app.get("/api/vm-challenge")
+async def vm_challenge(request: Request) -> Response:
+    """下发本会话的 VM 挑战：一段解释随机字节码的 JS 函数体。
+
+    用法（客户端）：
+        const {vm} = await (await fetch("/api/vm-challenge")).json();
+        const token = new Function("I", vm)([seed32, tsLow, fnv1a(nonce)]);
+
+    程序由会话确定性派生，服务端不存状态；每次取到的都一样，换个会话就全变。
+    真正的门槛不是混淆，是**程序本身每会话都不同**——写死的 VM 模拟器会失效。
+    """
+    layer = next((l for l in active_layers if isinstance(l, RuntimeLayer)), None)
+    if layer is None or layer.mechanism == "env":
+        return JSONResponse({"error": "本 profile 未启用 VM 挑战"}, status_code=404)
+
+    session = _session_id(request)
+    challenge = layer.challenge_for(session)
+    response = JSONResponse(
+        {
+            "vm": vm.emit_js(challenge),
+            "seed32": vm.seed32_of(challenge.seed),
+            "program_length": challenge.length,
+        }
+    )
+    _attach_session(request, response, session)
+    return response
 
 
 @app.get("/assets/{name}")
@@ -178,11 +222,12 @@ async def challenge(request: Request) -> Response:
     注意这个端点的存在本身不代表验证码是常规关卡——它只是让客户端在被
     captcha_required 拦下后有地方拿题。默认 profile 里 L6 是关闭的。
     """
-    response = JSONResponse({})
-    session = _ensure_session(request, response)
     if gate.captcha is None:
         return JSONResponse({"error": "L6 未启用"}, status_code=404)
-    return JSONResponse(gate.captcha.issue_challenge(session, state), headers=response.headers)
+    session = _session_id(request)
+    response = JSONResponse(gate.captcha.issue_challenge(session, state))
+    _attach_session(request, response, session)
+    return response
 
 
 @app.get("/api/items")

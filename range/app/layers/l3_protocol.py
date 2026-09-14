@@ -31,7 +31,7 @@ class ProtocolLayer(Layer):
     def __init__(self, strength: Strength, options: dict | None = None) -> None:
         super().__init__(strength, options)
         self.salt_mode: str = self.opt("salt_mode", "static")
-        if self.salt_mode not in ("static", "derived", "runtime"):
+        if self.salt_mode not in ("static", "derived", "runtime", "vm"):
             raise ValueError(f"{self.id}: 未知的 salt_mode {self.salt_mode!r}")
         self.seed: str = self.opt("seed", "cl-demo-seed")
         self.static_salt: str = self.opt("static_salt", "cl-demo-salt")
@@ -39,8 +39,13 @@ class ProtocolLayer(Layer):
 
     @property
     def effective_rung(self) -> int:
-        """runtime 档把你顶到阶梯 L3（需要 JS 引擎），其余档位停在 L1。"""
-        return 3 if self.salt_mode == "runtime" else 1
+        """salt 从哪来，决定攻击方被顶到阶梯的第几级。
+
+        static/derived 可静态逆向，停在 L1；runtime 绑环境快照、vm 绑 VM 执行
+        结果，两者都需要 JS 运行时，顶到 L3。其中 vm 是最强的——runtime 还能
+        靠手写一份自洽 JSON 骗过，VM 的输出只能真的执行才能得到。
+        """
+        return 3 if self.salt_mode in ("runtime", "vm") else 1
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
         rung = self.effective_rung
@@ -82,6 +87,7 @@ class ProtocolLayer(Layer):
             seed=self.seed,
             static_salt=self.static_salt,
             env_snapshot=probe.header("x-cl-env"),
+            vm_token=probe.header("x-cl-vm").strip().lower(),
             method=probe.method,
             path=probe.path,
             canonical_query=probe.canonical_query,

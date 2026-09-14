@@ -1,23 +1,47 @@
-"""L4 运行时层 —— 只看客户端 JS 运行时环境的**自洽性**。
+"""L4 运行时层 —— 判定"你有没有真实的 JS 运行时"。
 
-这一层不问"你是不是浏览器"（没法问），而是问"你声称的这套环境属性之间
-有没有互相矛盾"。伪造单个属性很容易，让几十个属性互相自洽很难——
-这是环境检测的全部要义。
+两种机制，用 options.mechanism 选择：
 
-被本层拦住意味着需要一个真实的 JS 运行时环境，而不只是执行一段算法。
-对应成本阶梯上从轻量 JS 引擎升级到完整无头浏览器 + 指纹补丁。
+  env   检查客户端提交的环境快照**自洽不自洽**。伪造单个属性很容易，让几十个
+        属性互相自洽很难。但这终究是"校验声明"——手写一份不矛盾的 JSON 就能过
+        （harness 里的 enveloped.py 正是这么干的）。保留它有教学价值，也如实
+        反映了相当多生产环境的真实强度。
+
+  vm    下发一段**每会话都不同的随机字节码 + 解释它的 JS**，客户端必须执行
+        才能算出 token。这是"要求证明"而非"校验声明"——程序每次都变，预先
+        逆向无效。见 app/vm.py。
+
+  both  两者都要过。
+
+env 可以纯靠构造 JSON 骗过，vm 不行。这个区别是本层强弱的分水岭，也是真实
+防御（瑞数五代、acw_sc__v2、a_bogus 那一类）与朴素指纹校验的分水岭。
+
+被本层拦住意味着需要一个真实的 JS 运行时，对应成本阶梯上从纯 HTTP 升级到
+至少要带一个 JS 引擎。
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
+import hmac
 import json
 from typing import Any, ClassVar
 
+from .. import vm
 from ..core import Probe, RangeState, Strength, Verdict
 from .base import Layer
 from .l2_transport import ua_family
+
+#: 各强度档下 VM 程序的长度与是否打乱操作码。
+#: lenient  攻击方写一次 VM 模拟器就能一劳永逸（现实中被攻破的状态）
+#: strict   操作码逐会话打乱，模拟器每次失效
+#: paranoid 更长的程序，执行成本也更高
+_VM_PROFILE: dict[Strength, tuple[int, bool]] = {
+    Strength.LENIENT: (64, False),
+    Strength.STRICT: (160, True),
+    Strength.PARANOID: (400, True),
+}
 
 #: UA 中的操作系统标记 -> navigator.platform 的合法取值。
 _UA_OS_TO_PLATFORMS: dict[str, tuple[str, ...]] = {
@@ -61,7 +85,78 @@ class RuntimeLayer(Layer):
     name: ClassVar[str] = "运行时层"
     ladder_rung: ClassVar[int] = 4  # 被拦 -> 需要完整浏览器，即阶梯 L4
 
+    @property
+    def mechanism(self) -> str:
+        value = self.opt("mechanism", "env")
+        if value not in ("env", "vm", "both"):
+            raise ValueError(f"{self.id}: 未知的 mechanism {value!r}")
+        return value
+
+    def challenge_for(self, session: str) -> vm.Challenge:
+        """本会话的 VM 挑战。
+
+        完全由 seed 派生，所以服务端**不存任何状态**就能在校验时复算出同一段
+        程序。这也是靶场可复现性的要求：同一个 session 在任何机器上拿到同一段
+        字节码。
+        """
+        length, shuffle = _VM_PROFILE[self.strength]
+        seed = f"{self.opt('vm_seed', 'cl-vm')}::{session}"
+        return vm.build_challenge(seed, length=length, shuffle_opcodes=shuffle)
+
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
+        mechanism = self.mechanism
+        if mechanism in ("vm", "both"):
+            verdict = self._inspect_vm(probe)
+            if not verdict.passed:
+                return verdict
+            if mechanism == "vm":
+                return verdict
+        return self._inspect_env(probe)
+
+    # --- vm 机制：要求客户端执行现场下发的字节码 ---
+
+    def _inspect_vm(self, probe: Probe) -> Verdict:
+        session = probe.cookies.get("cl_session") or probe.header("x-cl-session")
+        if not session:
+            return self._fail(
+                "vm_session_missing",
+                score=float(self.opt("missing_score", 1.0)),
+                hint="VM 挑战按会话派生，需要 cl_session cookie 或 X-CL-Session 头",
+            )
+
+        submitted = probe.header("x-cl-vm")
+        if not submitted:
+            return self._fail(
+                "vm_token_missing",
+                score=float(self.opt("missing_score", 1.0)),
+                hint="先取 /api/vm-challenge，在真实 JS 运行时里执行后提交 X-CL-VM",
+            )
+
+        # ts 与 nonce 在这里只作为 VM 的输入，不做时效判定——那是 L3 的维度，
+        # 本层不重复判断。它们进输入是为了让**每个请求**都必须跑一次 VM。
+        try:
+            ts_ms = int(probe.header("x-cl-ts") or "0")
+        except ValueError:
+            return self._fail("vm_input_malformed", field="X-CL-Ts")
+        nonce = probe.header("x-cl-nonce")
+
+        challenge = self.challenge_for(session)
+        inputs = vm.make_inputs(vm.seed32_of(challenge.seed), ts_ms, nonce)
+        expected = vm.token_hex(vm.execute(challenge, inputs))
+
+        if not hmac.compare_digest(expected, submitted.strip().lower()):
+            detail: dict[str, Any] = {"program_length": challenge.length}
+            if self.strength is Strength.LENIENT:
+                # lenient 是教学档：回显期望值，先跑通链路再关掉它去真正实现 VM
+                detail["expected"] = expected
+                detail["inputs"] = inputs
+            return self._fail("vm_token_mismatch", score=float(self.opt("score", 1.0)), **detail)
+
+        return self._ok(mechanism="vm", program_length=challenge.length)
+
+    # --- env 机制：检查环境快照自洽性 ---
+
+    def _inspect_env(self, probe: Probe) -> Verdict:
         raw = probe.header("x-cl-env")
         if not raw:
             return self._fail("env_missing", score=float(self.opt("missing_score", 1.0)))

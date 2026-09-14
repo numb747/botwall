@@ -33,6 +33,52 @@ async function runtimeSalt(seed, envSnapshot) {
   return (await sha256Hex(base + envSnapshot)).slice(0, 16);
 }
 
+/** vm 档：derived 的结果再与 VM 执行结果绑定。对应 signing.vm_salt。 */
+async function vmSalt(seed, vmToken) {
+  const base = await deriveSalt(seed);
+  return (await sha256Hex(base + vmToken)).slice(0, 16);
+}
+
+// --- VM 挑战（L4 的 vm 机制）---
+
+/** 32 位 FNV-1a。VM 的第三个输入。对应 vm.fnv1a。 */
+function fnv1a(text) {
+  let h = 0x811c9dc5;
+  const bytes = new TextEncoder().encode(text);
+  for (const byte of bytes) {
+    h = Math.imul(h ^ byte, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+let vmCache = null;
+
+/**
+ * 取本会话的 VM 挑战并编译。
+ *
+ * 服务端下发的是一段解释随机字节码的 JS 函数体——注意**程序每会话都不同**，
+ * 所以这里不能缓存跨会话的结果，也不可能预先把它逆向掉。
+ */
+async function loadVm() {
+  if (vmCache) return vmCache;
+  const res = await fetch("/api/vm-challenge", { credentials: "same-origin" });
+  if (!res.ok) return null;
+  const { vm, seed32 } = await res.json();
+  // eslint-disable-next-line no-new-func -- 执行服务端下发的挑战正是本机制的要点
+  vmCache = { run: new Function("I", vm), seed32 };
+  return vmCache;
+}
+
+/** 用 (seed32, ts, nonce) 跑一次 VM，得到 8 位十六进制 token。 */
+async function vmToken(ts, nonce) {
+  const loaded = await loadVm();
+  if (!loaded) return "";
+  // ts 是毫秒数，超过 32 位，取低 32 位——服务端 make_inputs 同样处理
+  const tsLow = Number(BigInt(ts) & 0xffffffffn);
+  const value = loaded.run([loaded.seed32 >>> 0, tsLow >>> 0, fnv1a(nonce)]);
+  return (value >>> 0).toString(16).padStart(8, "0");
+}
+
 /**
  * 查询参数按 key 排序后以 & 连接。
  * 注意：JS 默认排序按 UTF-16 码元，Python 的 sorted 按码点。ASCII 键名下两者
@@ -164,6 +210,11 @@ export async function signedFetch(path, params = {}) {
     headers["X-CL-Env"] = envSnapshot;
   }
 
+  // VM token 既可能被 L3 的 vm 档用来算 salt，也可能被 L4 的 vm 机制单独校验，
+  // 所以只要挑战可取就算上：拿不到（未启用）时 loadVm 返回 null，这里得空串。
+  const token = await vmToken(ts, nonce);
+  if (token) headers["X-CL-VM"] = token;
+
   let salt;
   if (saltMode === "static") {
     // static 档的 salt 明文写死在这里 —— 读一遍这个文件即可复现。
@@ -172,6 +223,8 @@ export async function signedFetch(path, params = {}) {
     salt = await deriveSalt(seed);
   } else if (saltMode === "runtime") {
     salt = await runtimeSalt(seed, envSnapshot);
+  } else if (saltMode === "vm") {
+    salt = await vmSalt(seed, token);
   } else {
     salt = null; // L3 未启用
   }
