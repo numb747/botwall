@@ -84,7 +84,34 @@ L2 只看 TLS 指纹，绝不顺带看 UA；L4 只看 JS 运行时环境，绝�
 
 **被它拦住意味着**：你的 HTTP 客户端选型不对。对应阶梯上从 `requests` 换到具备指纹伪装能力的客户端（`curl_cffi` 一类）。这一跳的**成本增量几乎为零**——换个库而已——所以它是整条阶梯上性价比最高的一级，但也是最容易被忽略的一级。很多人在这里被拦，却误判成"要上浏览器"，直接从 L2 跳到 L5，白白付出 50 倍成本。
 
-**实现说明**：TLS 指纹无法在应用层中间件里拿到，需要一个前置的 TLS 嗅探代理解析 ClientHello 原始字节、计算 JA3，再以 `X-BW-JA3` 头转发给应用。该组件是 `range/tlsfront`。在纯 HTTP 的本地开发模式下该头可被客户端伪造——这是**有意为之**，便于单测；启用 `tlsfront` 后代理会强制覆盖该头。
+**实现：`range/tlsfront`** —— TLS 终结代理，在握手完成前截下 ClientHello 算出 JA3，再以 `X-BW-JA3` 注入给靶场。
+
+核心技巧是 `ssl.MemoryBIO`。普通的 `wrap_socket` 会把 ClientHello 直接吃进 TLS 状态机，应用层再也拿不到；而要算 JA3 就必须看到那段原始字节。做法是：
+
+1. 从裸 socket 读出第一条 TLS 记录，**只读不交给 TLS 状态机**
+2. 解析它，算 JA3
+3. 把这段字节**原样喂回** incoming BIO，再手动驱动握手
+4. 握手成功后转发明文 HTTP，并**强制覆盖** `X-BW-JA3`——客户端自报的一律丢弃
+
+第 4 步是这一层能成立的前提。纯 HTTP 的开发模式下该头可被客户端伪造（便于单测），一旦 tlsfront 在前面就只能由它说了算。
+
+**两个容易踩错的地方**
+
+*JA3 取的是 ClientHello body 里的 `legacy_version`*，不是记录层版本，也不是 `supported_versions` 扩展里的真实版本。TLS 1.3 客户端在这里一律写 `0x0303` 以兼容中间设备。
+
+*GREASE 值必须剔除*（RFC 8701）。浏览器会往密码套件、扩展、椭圆曲线里随机插保留值防止协议僵化，**这些值每次连接都不同**。不剔除的话同一个浏览器每次算出的 JA3 都不一样，整个机制作废——而且症状是"偶尔拦错人"，极难排查。测试 `test_rotating_grease_gives_stable_fingerprint` 专门钉这条。
+
+**实测**（本机，三种客户端各连两次）：
+
+```
+python-urllib   e13a080178d6052cad07cde7ba6232d0
+curl            cd911cdb3ae1af6c7bc940cdcad83a1a
+node-https      74fc12d4399034848f23564f342e65b9
+```
+
+三者互异、各自稳定。而且**换 UA 换不掉 TLS 指纹**——这正是交叉校验（UA 自称 Chrome、握手却是 curl 的形状）能成立的根本原因：伪造方改不动握手。
+
+**录制自己的指纹集**：`python -m tlsfront record --out ../fingerprints/local.yaml`，然后用你要测的每个客户端各访问一次。仓库内置的 `demo.yaml` 全是占位符，不是真实 JA3——真实值随浏览器版本变化，写死在仓库里几个月就过期，而过期的指纹会让真浏览器也被拦。
 
 **原因码**：`ja3_known_script_client` / `ja3_not_in_allowlist` / `ja3_ua_mismatch` / `h2_fingerprint_mismatch`
 

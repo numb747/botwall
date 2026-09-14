@@ -27,7 +27,7 @@ botwall 补的就是这个空白：
 | 层 | 检验对象 | 被它拦住意味着 |
 |---|---|---|
 | L1 网络 | IP 段类型、频率、会话并发 | 代理档位不够 |
-| L2 传输 | JA3/JA4、HTTP2 指纹、与 UA 的交叉一致性 | HTTP 客户端选型不对 |
+| **L2 传输** | **真实 JA3（tlsfront 解析 ClientHello）、与 UA 的交叉一致性** | **HTTP 客户端选型不对** |
 | **L3 协议** | **请求签名、时效、重放** | **还没复现签名 ← 成本差最大的分水岭** |
 | **L4 运行时** | **`env`：环境属性自洽性；`vm`：随机化虚拟机挑战** | **需要真实 JS 运行时** |
 | **L5 行为** | **`stats`：轨迹统计特征；`task`：几何任务** | **需要真浏览器 + 可信交互** |
@@ -63,6 +63,30 @@ browser      L4     40        0.01       0.25    —
 
 服务端（Python）与客户端（JS）的 32 位语义必须逐位一致，差一位就变成随机拒绝合法客户端。测试真的起一个 Node 进程执行发出的 JS 并比对。
 
+### tlsfront：真实的 TLS 指纹
+
+L2 要想是真的，就必须有个组件在 TCP 字节流上解析 ClientHello——TLS 指纹由客户端的 **TLS 栈**决定，握手一结束就没了，应用层中间件根本看不到。
+
+`range/tlsfront` 是一个 TLS 终结代理。核心技巧是 `ssl.MemoryBIO`：先把第一条 TLS 记录从裸 socket 读出来（**不交给 TLS 状态机**），解析算出 JA3，再把原始字节**原样喂回** BIO 驱动握手。握手成功后转发明文 HTTP，并**强制覆盖** `X-BW-JA3`——客户端自报的一律丢弃。
+
+实测（三种客户端，各连两次）：
+
+```
+python-urllib   e13a080178d6052cad07cde7ba6232d0
+curl            cd911cdb3ae1af6c7bc940cdcad83a1a
+node-https      74fc12d4399034848f23564f342e65b9
+```
+
+三者互异、各自稳定。而且**换 UA 换不掉 TLS 指纹**——这正是交叉校验能成立的根本原因：伪造方改不动握手。
+
+最容易致命的一处是 **GREASE 剔除**（RFC 8701）：浏览器每次连接都会随机插保留值，不剔除的话同一个浏览器每次算出的 JA3 都不同，机制作废——症状还是"偶尔拦错人"，极难排查。
+
+录制自己机器的指纹集：
+
+```bash
+cd range && python -m tlsfront record --out ../fingerprints/local.yaml
+```
+
 ### 两种响应模式
 
 | 模式 | 被拦时 | 用途 |
@@ -78,7 +102,7 @@ browser      L4     40        0.01       0.25    —
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e range -e harness pytest
-.venv/bin/python -m pytest                              # 117 passed
+.venv/bin/python -m pytest                              # 148 passed
 ```
 
 ### 一、看成本决策表（附带工具）
@@ -172,12 +196,13 @@ v0.1，靶场六层可用（含随机化 VM 挑战），附带的成本 harness 
 - 6 个攻击实现构成完整阶梯（L0 → L5），含一个真浏览器实现（Playwright 跑站点自己的 JS）
 - **一个关于成本模型自身的发现**：几何任务让墙钟涨 1.8×，但按 CPU 计价的成本模型完全看不见（1.00×）——时间型防御对它是结构性盲区。已如实记入 `harness/README.md`
 - **交叉点分析**：`browser` 与 `signed` 是两条相反的经济路径（边际成本 vs 一次性逆向工时）。`browser` 加载整页约 800 KB 资产，边际成本实测是 `signed` 的约 48 倍。模型给出"采集量大到多少才值得逆向"的量化答案，且强烈依赖代理档位——datacenter 档约 8.5 亿条/年，residential 档约 1500 万条/年（代理越贵，逆向越早回本）
-- 117 项测试，含端到端与跨语言（Python↔Node）VM 一致性比对
+- **tlsfront**：TLS 终结代理，用 MemoryBIO 在握手完成前截获 ClientHello 算 JA3，含 GREASE 剔除
+- 148 项测试，含端到端、跨语言（Python↔Node）VM 一致性比对、多客户端真实 TLS 指纹比对
 
 **未完成**
 - **引入真实代理延迟与失败率**。整页流量已建模（`browser` 加载约 800 KB 资产，边际成本实测约为 `signed` 的 48 倍），但页面权重是可调估计值、且未含代理延迟——这是交叉点数字的主要不确定来源
-- `tlsfront`：解析 ClientHello 计算 JA3 的前置代理。在它就位前 L2 依赖客户端自报 `X-BW-JA3`，**L2 的测量数据不具备对外可比性**
-- 真实指纹集录制。`fingerprints/demo.yaml` 全是占位符，不是真实 JA3
+- 真实指纹集录制。`fingerprints/demo.yaml` 全是占位符，不是真实 JA3——用 `python -m tlsfront record` 录自己的。在填好之前，**L2 的测量数据不具备对外可比性**
+- HTTP/2 指纹（Akamai 指纹）。当前只做了 JA3，tlsfront 转发时降级为 HTTP/1.1
 - 容器化 + cgroup 计量（当前用 `getrusage`，能透传捕获 chromium 的 CPU，但隔离不彻底，且只支持 Python 攻击实现）
 - LLM token 计量，用于接入 VLM 类攻击实现
 - `sign.js` 的混淆构建。当前可读，因此 `derived` 档的逆向难度被显著低估

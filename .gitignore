@@ -9,7 +9,10 @@ dist/
 .ruff_cache/
 
 # 录制的本地指纹集：含使用者自己的浏览器版本信息，不入库
+# 自签证书与私钥：每台机器自己生成，仓库里绝不带私钥
+range/tlsfront/certs/
 range/fingerprints/local*.yaml
 
 # 注意 results/ 是**入库**的：发布的测量结果要和它所依赖的 profile 版本、
 # 价格表版本一起进版本控制，否则结论不可复现，也没法追溯是哪次改动让数字变了。
+certs/

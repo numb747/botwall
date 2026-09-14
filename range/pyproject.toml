@@ -20,7 +20,10 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "tlsfront*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "e2e: 端到端测试，会启动真实服务（较慢）。跳过用 -m 'not e2e'",
+]
