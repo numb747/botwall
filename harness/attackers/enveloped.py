@@ -93,7 +93,7 @@ class Enveloped(Attacker):
 
     def _salt(self) -> str | None:
         if self.salt_mode == "static":
-            return "cl-demo-salt"
+            return "bw-demo-salt"
         if self.salt_mode == "derived":
             return derive_salt(self.seed or "")
         if self.salt_mode == "runtime":
@@ -105,9 +105,9 @@ class Enveloped(Attacker):
             "User-Agent": UA,
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "zh-CN,zh;q=0.9",
-            "X-CL-JA3": "PLACEHOLDER_JA3_CHROME_142",
-            "X-CL-Session": self.session,
-            "X-CL-Env": self.env,
+            "X-BW-JA3": "PLACEHOLDER_JA3_CHROME_142",
+            "X-BW-Session": self.session,
+            "X-BW-Env": self.env,
         }
         salt = self._salt()
         if salt is None:
@@ -116,9 +116,9 @@ class Enveloped(Attacker):
         ts = str(int(time.time() * 1000))
         nonce = os.urandom(12).hex()
         payload = "\n".join(("GET", path, self.canonical_query(params), ts, nonce))
-        headers["X-CL-Ts"] = ts
-        headers["X-CL-Nonce"] = nonce
-        headers["X-CL-Sign"] = sign(salt, payload)
+        headers["X-BW-Ts"] = ts
+        headers["X-BW-Nonce"] = nonce
+        headers["X-BW-Sign"] = sign(salt, payload)
         return headers
 
 

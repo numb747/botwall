@@ -86,7 +86,7 @@ python3 -m venv .venv && .venv/bin/pip install -e range -e harness pytest
 `harness/` 是靶场的附属工具，不是本项目的主体：它把攻击实现跑在一个强制计量的反向代理后面，算出"突破这套防御每万条数据要花多少钱"。
 
 ```console
-$ .venv/bin/costladder scan -p cdn-standard -p api-signed -n 100
+$ .venv/bin/botwall scan -p cdn-standard -p api-signed -n 100
 
 ══ cdn-standard [diagnostic/gate] ══
 攻击实现      级    真值   请求      R     实测/万条   摊销/万条   合计/万条   主要拦截原因
@@ -106,7 +106,7 @@ traced       L5    100      6   1.00×   1.80e-04       2.24      2.24    —
 ### 二、看靶场的归因输出
 
 ```bash
-CL_PROFILE=hardened .venv/bin/uvicorn app.main:app --port 8900 --app-dir range
+BW_PROFILE=hardened .venv/bin/uvicorn app.main:app --port 8900 --app-dir range
 ```
 
 另开终端，看一个什么都不做的采集器会得到什么：
@@ -124,7 +124,7 @@ GET /api/items -> HTTP 403
 ### 三、看 blind 模式怎么静默投毒
 
 ```console
-$ .venv/bin/costladder scan -p api-signed -a naive --mode blind -n 100
+$ .venv/bin/botwall scan -p api-signed -a naive --mode blind -n 100
 naive       L0        0      5      ∞           ∞       0.02         ∞    —
               ⚠ 收到 100 条投毒数据（HTTP 200 但内容是假的）
 ```
@@ -173,7 +173,7 @@ v0.1，靶场六层可用（含随机化 VM 挑战），附带的成本 harness 
 
 **未完成**
 - **引入真实代理延迟与失败率**。整页流量已建模（`browser` 加载约 800 KB 资产，边际成本实测约为 `signed` 的 48 倍），但页面权重是可调估计值、且未含代理延迟——这是交叉点数字的主要不确定来源
-- `tlsfront`：解析 ClientHello 计算 JA3 的前置代理。在它就位前 L2 依赖客户端自报 `X-CL-JA3`，**L2 的测量数据不具备对外可比性**
+- `tlsfront`：解析 ClientHello 计算 JA3 的前置代理。在它就位前 L2 依赖客户端自报 `X-BW-JA3`，**L2 的测量数据不具备对外可比性**
 - 真实指纹集录制。`fingerprints/demo.yaml` 全是占位符，不是真实 JA3
 - 容器化 + cgroup 计量（当前用 `getrusage`，能透传捕获 chromium 的 CPU，但隔离不彻底，且只支持 Python 攻击实现）
 - LLM token 计量，用于接入 VLM 类攻击实现

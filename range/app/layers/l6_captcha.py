@@ -79,7 +79,7 @@ class CaptchaLayer(Layer):
     # --- 判题 ---
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
-        session = probe.cookies.get("cl_session") or probe.header("x-cl-session")
+        session = probe.cookies.get("bw_session") or probe.header("x-bw-session")
         if not session:
             return self._fail("captcha_required", detail_note="缺少会话标识，无法关联挑战")
 
@@ -87,7 +87,7 @@ class CaptchaLayer(Layer):
         if challenge is None:
             return self._fail("captcha_required", detail_note="尚未领取挑战")
 
-        solution = probe.header("x-cl-captcha")
+        solution = probe.header("x-bw-captcha")
         if not solution:
             return self._fail("captcha_required", challenge_id=challenge["id"])
 
@@ -154,7 +154,7 @@ class CaptchaLayer(Layer):
         import binascii
         import json
 
-        raw = probe.header("x-cl-trace")
+        raw = probe.header("x-bw-trace")
         if not raw:
             return None
         try:

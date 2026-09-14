@@ -1,10 +1,10 @@
 """命令行入口。
 
-    costladder scan                          全 profile × 全攻击实现
-    costladder scan -p api-signed -a signed  指定组合
-    costladder scan --mode blind             覆盖响应模式，测投毒与排障成本
-    costladder scan --proxy-tier residential 换代理档位重算
-    costladder rates                         看当前价格表
+    botwall scan                          全 profile × 全攻击实现
+    botwall scan -p api-signed -a signed  指定组合
+    botwall scan --mode blind             覆盖响应模式，测投毒与排障成本
+    botwall scan --proxy-tier residential 换代理档位重算
+    botwall rates                         看当前价格表
 """
 
 from __future__ import annotations
@@ -96,7 +96,7 @@ def cmd_attackers(_: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="costladder", description="采集成本阶梯扫描")
+    ap = argparse.ArgumentParser(prog="botwall", description="采集成本阶梯扫描")
     sub = ap.add_subparsers(dest="command", required=True)
 
     scan = sub.add_parser("scan", help="跑 profile × 攻击实现，输出决策表")

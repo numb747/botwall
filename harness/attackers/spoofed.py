@@ -7,7 +7,7 @@
 curl_cffi 一类），而不是上浏览器。误判成"要上浏览器"会直接跳到阶梯 L4，
 白白付出约 50 倍成本。
 
-关于 X-CL-JA3
+关于 X-BW-JA3
 -------------
 真实世界里 TLS 指纹由客户端库的握手行为决定，伪装靠换库实现。靶场的
 tlsfront 前置代理尚未实现，所以这里用自报的头代替。这是**开发模式的
@@ -36,8 +36,8 @@ class Spoofed(Attacker):
             "Accept-Language": "zh-CN,zh;q=0.9",
             # 必须与 UA 声明的浏览器族一致，否则 paranoid 档的交叉校验会抓到。
             # 换 UA 绕不过这一条 —— 这正是交叉一致性比单点校验强的地方。
-            "X-CL-JA3": "PLACEHOLDER_JA3_CHROME_142",
-            "X-CL-Session": self.session,
+            "X-BW-JA3": "PLACEHOLDER_JA3_CHROME_142",
+            "X-BW-Session": self.session,
         }
 
 

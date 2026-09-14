@@ -1,6 +1,6 @@
 """计量反向代理 —— 成本核算的信任根。
 
-攻击实现拿到的 CL_TARGET 指向本代理，而不是靶场。它不知道靶场的真实地址，
+攻击实现拿到的 BW_TARGET 指向本代理，而不是靶场。它不知道靶场的真实地址，
 因此**无法绕过计量**。所有字节数、请求数、状态码都由代理记账，不接受自报。
 
 这是本项目与现有工作的一个实质区别：现有基准普遍是"作者在论文里写我们花了
@@ -125,7 +125,7 @@ def _extract_reasons(payload: bytes) -> tuple[str, ...]:
 def _make_handler(upstream: str, stats: MeterStats) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
-        server_version = "CostLadderMeter/0.1"
+        server_version = "botwallMeter/0.1"
 
         def log_message(self, *args) -> None:  # 静音：计量数据走 stats，不走 stderr
             pass

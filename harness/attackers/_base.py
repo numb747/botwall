@@ -2,12 +2,12 @@
 
 协议
 ----
-    输入   环境变量 CL_TARGET / CL_ITEMS_WANTED / CL_PAGE_SIZE
+    输入   环境变量 BW_TARGET / BW_ITEMS_WANTED / BW_PAGE_SIZE
     输出   stdout 逐行 JSONL，每行一条采到的记录
     诊断   stderr（harness 单独捕获，不参与计量）
     退出   0 = 采够了，非 0 = 放弃
 
-CL_TARGET 指向 harness 的计量代理，不是靶场。攻击实现不知道靶场的真实地址，
+BW_TARGET 指向 harness 的计量代理，不是靶场。攻击实现不知道靶场的真实地址，
 因此无法绕过计量。
 
 为什么各个攻击实现共用这个骨架
@@ -42,9 +42,9 @@ class Attacker:
     rung: int = 0
 
     def __init__(self) -> None:
-        self.target = os.environ.get("CL_TARGET", "http://127.0.0.1:8900").rstrip("/")
-        self.wanted = int(os.environ.get("CL_ITEMS_WANTED", "200"))
-        self.page_size = int(os.environ.get("CL_PAGE_SIZE", "20"))
+        self.target = os.environ.get("BW_TARGET", "http://127.0.0.1:8900").rstrip("/")
+        self.wanted = int(os.environ.get("BW_ITEMS_WANTED", "200"))
+        self.page_size = int(os.environ.get("BW_PAGE_SIZE", "20"))
         self.session = os.urandom(8).hex()
 
     # --- 子类接口 ---

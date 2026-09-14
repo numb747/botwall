@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from costladder_harness import load_attackers, load_rates
-from costladder_harness.cost import Declared, Measured, compute
-from costladder_harness.meter import MeterStats, RequestRecord, _extract_reasons
-from costladder_harness.runner import ATTACKER_DIR
+from botwall_harness import load_attackers, load_rates
+from botwall_harness.cost import Declared, Measured, compute
+from botwall_harness.meter import MeterStats, RequestRecord, _extract_reasons
+from botwall_harness.runner import ATTACKER_DIR
 
 RATES = load_rates()
 
@@ -25,7 +25,7 @@ RATES = load_rates()
 
 #: 攻击实现绝不能碰的模块。能 import 就等于直接拿到签名算法，
 #: 那么"逆向工时"就是编的，整张成本表都不成立。
-FORBIDDEN_ROOTS = {"app", "costladder_harness", "range"}
+FORBIDDEN_ROOTS = {"app", "botwall_harness", "range"}
 
 
 def _all_source_files() -> list[Path]:
@@ -178,7 +178,7 @@ def test_unknown_proxy_tier_raises():
 
 def test_dev_amortization_scales_with_revisions():
     """摊销期由目标站改版频率决定，不由项目周期决定。"""
-    from costladder_harness.cost import amortized_dev_cost
+    from botwall_harness.cost import amortized_dev_cost
 
     base = amortized_dev_cost(10.0, RATES)
     assert base == pytest.approx(
@@ -191,7 +191,7 @@ def test_larger_volume_makes_reverse_engineering_cheaper():
     """L1 的核心经济学：采集量越大，一次性逆向工时摊得越薄。"""
     import dataclasses
 
-    from costladder_harness.cost import amortized_dev_cost
+    from botwall_harness.cost import amortized_dev_cost
 
     small = dataclasses.replace(RATES, annual_records=100_000)
     large = dataclasses.replace(RATES, annual_records=100_000_000)

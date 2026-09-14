@@ -84,7 +84,7 @@ class NetworkLayer(Layer):
                     )
 
         if self.strength is Strength.PARANOID:
-            session = probe.cookies.get("cl_session") or probe.header("x-cl-session")
+            session = probe.cookies.get("bw_session") or probe.header("x-bw-session")
             if session:
                 state.ip_sessions[ip].add(session)
             limit = int(self.opt("max_sessions_per_ip", 2))

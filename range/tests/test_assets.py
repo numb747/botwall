@@ -33,9 +33,9 @@ def test_assets_are_incompressible():
 
 
 def test_weight_scales_all_assets(monkeypatch):
-    monkeypatch.setenv("CL_PAGE_WEIGHT", "2.0")
+    monkeypatch.setenv("BW_PAGE_WEIGHT", "2.0")
     assert len(assets.asset_bytes("app.css")) == 45 * 1024 * 2
-    monkeypatch.setenv("CL_PAGE_WEIGHT", "0")
+    monkeypatch.setenv("BW_PAGE_WEIGHT", "0")
     assert assets.asset_bytes("app.css") == b""
 
 

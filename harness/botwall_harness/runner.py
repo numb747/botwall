@@ -1,6 +1,6 @@
 """编排一次运行：起靶场 -> 起计量代理 -> 跑攻击实现 -> 校验 -> 算成本。
 
-攻击实现拿到的 CL_TARGET 指向计量代理，不是靶场。它不知道靶场的真实地址。
+攻击实现拿到的 BW_TARGET 指向计量代理，不是靶场。它不知道靶场的真实地址。
 
 CPU 时间的取法
 --------------
@@ -98,11 +98,11 @@ class RangeServer:
         return f"http://127.0.0.1:{self.port}"
 
     def __enter__(self) -> "RangeServer":
-        env = dict(os.environ, CL_PROFILE=self.profile)
+        env = dict(os.environ, BW_PROFILE=self.profile)
         if self.mode:
-            env["CL_MODE"] = self.mode
+            env["BW_MODE"] = self.mode
         if self.form:
-            env["CL_FORM"] = self.form
+            env["BW_FORM"] = self.form
         self._proc = subprocess.Popen(
             [self.python, "-m", "uvicorn", "app.main:app", "--port", str(self.port),
              "--log-level", "error"],
@@ -206,9 +206,9 @@ def run_once(
 
         env = dict(
             os.environ,
-            CL_TARGET=meter.base_url,
-            CL_ITEMS_WANTED=str(items),
-            CL_PAGE_SIZE=str(page_size),
+            BW_TARGET=meter.base_url,
+            BW_ITEMS_WANTED=str(items),
+            BW_PAGE_SIZE=str(page_size),
             # 攻击实现互相 import（signed 用 spoofed 的 UA），所以入口目录要在路径上
             PYTHONPATH=str(ATTACKER_DIR),
         )

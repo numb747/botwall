@@ -27,8 +27,8 @@
       "measured": {
         "requests": 15,
         "total_bytes": 9345,
-        "cpu_seconds": 0.0426,
-        "wall_seconds": 0.054,
+        "cpu_seconds": 0.0386,
+        "wall_seconds": 0.048,
         "records_returned": 0,
         "records_verified": 0,
         "solves": 0
@@ -39,273 +39,7 @@
       },
       "cost": {
         "proxy_usd": 4.7e-07,
-        "compute_usd": 4.7e-07,
-        "solve_usd": 0.0,
-        "measured_per_10k": Infinity,
-        "dev_amortized_per_10k": 0.016,
-        "total_per_10k": Infinity,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 0,
-        "retry_amplification": Infinity
-      },
-      "meter": {
-        "requests": 15,
-        "total_bytes": 9345,
-        "bytes_per_request": 623.0,
-        "status_counts": {
-          "403": 15
-        },
-        "block_reasons": {
-          "ja3_absent": 15
-        },
-        "median_duration_ms": 0.42
-      },
-      "primary_block_reason": "ja3_absent"
-    },
-    {
-      "profile": "cdn-standard",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "spoofed",
-      "rung": 0,
-      "exit_code": 0,
-      "measured": {
-        "requests": 3,
-        "total_bytes": 9871,
-        "cpu_seconds": 0.0376,
-        "wall_seconds": 0.041,
-        "records_returned": 60,
-        "records_verified": 60,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 0.5,
-        "note": "加浏览器 UA 与 TLS 指纹。真实世界里就是从 requests 换到 curl_cffi， 成本增量接近零。整条阶梯上性价比最高的一级。"
-      },
-      "cost": {
-        "proxy_usd": 4.9e-07,
-        "compute_usd": 4.2e-07,
-        "solve_usd": 0.0,
-        "measured_per_10k": 0.00015189,
-        "dev_amortized_per_10k": 0.08,
-        "total_per_10k": 0.080152,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 60,
-        "retry_amplification": 1.0
-      },
-      "meter": {
-        "requests": 3,
-        "total_bytes": 9871,
-        "bytes_per_request": 3290.3,
-        "status_counts": {
-          "200": 3
-        },
-        "block_reasons": {},
-        "median_duration_ms": 0.54
-      },
-      "primary_block_reason": null
-    },
-    {
-      "profile": "cdn-standard",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "signed",
-      "rung": 1,
-      "exit_code": 0,
-      "measured": {
-        "requests": 4,
-        "total_bytes": 10498,
-        "cpu_seconds": 0.0391,
-        "wall_seconds": 0.043,
-        "records_returned": 60,
-        "records_verified": 60,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 6.0,
-        "note": "复现 derived 档签名。工时花在：抓包 diff 定位签名输入、确认序列化格式、 读 sign.js 的 deriveSalt 变换、处理时效与 nonce 重放。 这是唯一一项\"规模越大回报越高\"的能力。"
-      },
-      "cost": {
-        "proxy_usd": 5.2e-07,
         "compute_usd": 4.3e-07,
-        "solve_usd": 0.0,
-        "measured_per_10k": 0.00015989,
-        "dev_amortized_per_10k": 0.96,
-        "total_per_10k": 0.96016,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 60,
-        "retry_amplification": 1.0
-      },
-      "meter": {
-        "requests": 4,
-        "total_bytes": 10498,
-        "bytes_per_request": 2624.5,
-        "status_counts": {
-          "200": 4
-        },
-        "block_reasons": {},
-        "median_duration_ms": 0.62
-      },
-      "primary_block_reason": null
-    },
-    {
-      "profile": "cdn-standard",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "enveloped",
-      "rung": 4,
-      "exit_code": 0,
-      "measured": {
-        "requests": 4,
-        "total_bytes": 12706,
-        "cpu_seconds": 0.0423,
-        "wall_seconds": 0.047,
-        "records_returned": 60,
-        "records_verified": 60,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 10.0,
-        "note": "伪造自洽的环境快照，并处理 runtime 档签名。工时与服务端的交叉校验项数 成正比——每多一项校验就要多对齐一个字段。"
-      },
-      "cost": {
-        "proxy_usd": 6.4e-07,
-        "compute_usd": 4.7e-07,
-        "solve_usd": 0.0,
-        "measured_per_10k": 0.00018422,
-        "dev_amortized_per_10k": 1.6,
-        "total_per_10k": 1.600184,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 60,
-        "retry_amplification": 1.0
-      },
-      "meter": {
-        "requests": 4,
-        "total_bytes": 12706,
-        "bytes_per_request": 3176.5,
-        "status_counts": {
-          "200": 4
-        },
-        "block_reasons": {},
-        "median_duration_ms": 0.63
-      },
-      "primary_block_reason": null
-    },
-    {
-      "profile": "cdn-standard",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "browser",
-      "rung": 4,
-      "exit_code": 0,
-      "measured": {
-        "requests": 13,
-        "total_bytes": 863121,
-        "cpu_seconds": 0.5608,
-        "wall_seconds": 3.701,
-        "records_returned": 60,
-        "records_verified": 60,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 1.5,
-        "note": "不逆向，直接在真浏览器里跑站点自己的 sign.js。dev_hours 极低（只花在 Playwright 接线和抹自动化痕迹上），代价是高昂的边际成本——唯一真正付出 浏览器 CPU 与整页流量的实现。与 signed 的取舍恰好相反。过不了 hardened 的 paranoid WebGL 校验（headless 软件渲染），这个边界本身是一条结论。"
-      },
-      "cost": {
-        "proxy_usd": 4.316e-05,
-        "compute_usd": 6.23e-06,
-        "solve_usd": 0.0,
-        "measured_per_10k": 0.00823119,
-        "dev_amortized_per_10k": 0.24,
-        "total_per_10k": 0.248231,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 60,
-        "retry_amplification": 1.0
-      },
-      "meter": {
-        "requests": 13,
-        "total_bytes": 863121,
-        "bytes_per_request": 66393.9,
-        "status_counts": {
-          "200": 13
-        },
-        "block_reasons": {},
-        "median_duration_ms": 2.77
-      },
-      "primary_block_reason": null
-    },
-    {
-      "profile": "cdn-standard",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "traced",
-      "rung": 5,
-      "exit_code": 0,
-      "measured": {
-        "requests": 4,
-        "total_bytes": 17190,
-        "cpu_seconds": 0.0415,
-        "wall_seconds": 0.046,
-        "records_returned": 60,
-        "records_verified": 60,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 14.0,
-        "note": "合成类人轨迹。工时主要花在搞清楚\"随机化 sleep 不够，必须有加减速剖面\"。 注意：真实的行为层防御会识破合成轨迹并逼出真浏览器，所以本实现测出的 L5 成本是**下界**，不是真实成本。"
-      },
-      "cost": {
-        "proxy_usd": 8.6e-07,
-        "compute_usd": 4.6e-07,
-        "solve_usd": 0.0,
-        "measured_per_10k": 0.0002201,
-        "dev_amortized_per_10k": 2.24,
-        "total_per_10k": 2.24022,
-        "proxy_tier": "datacenter",
-        "rates_version": 1,
-        "verified": 60,
-        "retry_amplification": 1.0
-      },
-      "meter": {
-        "requests": 4,
-        "total_bytes": 17190,
-        "bytes_per_request": 4297.5,
-        "status_counts": {
-          "200": 4
-        },
-        "block_reasons": {},
-        "median_duration_ms": 0.69
-      },
-      "primary_block_reason": null
-    },
-    {
-      "profile": "api-signed",
-      "mode": "diagnostic",
-      "form": "gate",
-      "attacker": "naive",
-      "rung": 0,
-      "exit_code": 1,
-      "measured": {
-        "requests": 15,
-        "total_bytes": 9345,
-        "cpu_seconds": 0.0396,
-        "wall_seconds": 0.049,
-        "records_returned": 0,
-        "records_verified": 0,
-        "solves": 0
-      },
-      "declared": {
-        "dev_hours": 0.1,
-        "note": "裸 GET。基线，用于确认后面几级的额外成本全部来自防御而非实现复杂度。"
-      },
-      "cost": {
-        "proxy_usd": 4.7e-07,
-        "compute_usd": 4.4e-07,
         "solve_usd": 0.0,
         "measured_per_10k": Infinity,
         "dev_amortized_per_10k": 0.016,
@@ -330,6 +64,273 @@
       "primary_block_reason": "ja3_absent"
     },
     {
+      "profile": "cdn-standard",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "spoofed",
+      "rung": 0,
+      "exit_code": 0,
+      "measured": {
+        "requests": 3,
+        "total_bytes": 9871,
+        "cpu_seconds": 0.0367,
+        "wall_seconds": 0.04,
+        "records_returned": 60,
+        "records_verified": 60,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 0.5,
+        "note": "加浏览器 UA 与 TLS 指纹。真实世界里就是从 requests 换到 curl_cffi， 成本增量接近零。整条阶梯上性价比最高的一级。"
+      },
+      "cost": {
+        "proxy_usd": 4.9e-07,
+        "compute_usd": 4.1e-07,
+        "solve_usd": 0.0,
+        "measured_per_10k": 0.00015022,
+        "dev_amortized_per_10k": 0.08,
+        "total_per_10k": 0.08015,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 60,
+        "retry_amplification": 1.0
+      },
+      "meter": {
+        "requests": 3,
+        "total_bytes": 9871,
+        "bytes_per_request": 3290.3,
+        "status_counts": {
+          "200": 3
+        },
+        "block_reasons": {},
+        "median_duration_ms": 0.52
+      },
+      "primary_block_reason": null
+    },
+    {
+      "profile": "cdn-standard",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "signed",
+      "rung": 1,
+      "exit_code": 0,
+      "measured": {
+        "requests": 4,
+        "total_bytes": 10498,
+        "cpu_seconds": 0.0384,
+        "wall_seconds": 0.042,
+        "records_returned": 60,
+        "records_verified": 60,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 6.0,
+        "note": "复现 derived 档签名。工时花在：抓包 diff 定位签名输入、确认序列化格式、 读 sign.js 的 deriveSalt 变换、处理时效与 nonce 重放。 这是唯一一项\"规模越大回报越高\"的能力。"
+      },
+      "cost": {
+        "proxy_usd": 5.2e-07,
+        "compute_usd": 4.3e-07,
+        "solve_usd": 0.0,
+        "measured_per_10k": 0.00015859,
+        "dev_amortized_per_10k": 0.96,
+        "total_per_10k": 0.960159,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 60,
+        "retry_amplification": 1.0
+      },
+      "meter": {
+        "requests": 4,
+        "total_bytes": 10498,
+        "bytes_per_request": 2624.5,
+        "status_counts": {
+          "200": 4
+        },
+        "block_reasons": {},
+        "median_duration_ms": 0.48
+      },
+      "primary_block_reason": null
+    },
+    {
+      "profile": "cdn-standard",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "enveloped",
+      "rung": 4,
+      "exit_code": 0,
+      "measured": {
+        "requests": 4,
+        "total_bytes": 12706,
+        "cpu_seconds": 0.0379,
+        "wall_seconds": 0.042,
+        "records_returned": 60,
+        "records_verified": 60,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 10.0,
+        "note": "伪造自洽的环境快照，并处理 runtime 档签名。工时与服务端的交叉校验项数 成正比——每多一项校验就要多对齐一个字段。"
+      },
+      "cost": {
+        "proxy_usd": 6.4e-07,
+        "compute_usd": 4.2e-07,
+        "solve_usd": 0.0,
+        "measured_per_10k": 0.00017607,
+        "dev_amortized_per_10k": 1.6,
+        "total_per_10k": 1.600176,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 60,
+        "retry_amplification": 1.0
+      },
+      "meter": {
+        "requests": 4,
+        "total_bytes": 12706,
+        "bytes_per_request": 3176.5,
+        "status_counts": {
+          "200": 4
+        },
+        "block_reasons": {},
+        "median_duration_ms": 0.6
+      },
+      "primary_block_reason": null
+    },
+    {
+      "profile": "cdn-standard",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "browser",
+      "rung": 4,
+      "exit_code": 0,
+      "measured": {
+        "requests": 16,
+        "total_bytes": 867679,
+        "cpu_seconds": 0.5298,
+        "wall_seconds": 3.735,
+        "records_returned": 60,
+        "records_verified": 60,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 1.5,
+        "note": "不逆向，直接在真浏览器里跑站点自己的 sign.js。dev_hours 极低（只花在 Playwright 接线和抹自动化痕迹上），代价是高昂的边际成本——唯一真正付出 浏览器 CPU 与整页流量的实现。与 signed 的取舍恰好相反。过不了 hardened 的 paranoid WebGL 校验（headless 软件渲染），这个边界本身是一条结论。"
+      },
+      "cost": {
+        "proxy_usd": 4.338e-05,
+        "compute_usd": 5.89e-06,
+        "solve_usd": 0.0,
+        "measured_per_10k": 0.00821177,
+        "dev_amortized_per_10k": 0.24,
+        "total_per_10k": 0.248212,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 60,
+        "retry_amplification": 1.0
+      },
+      "meter": {
+        "requests": 16,
+        "total_bytes": 867679,
+        "bytes_per_request": 54229.9,
+        "status_counts": {
+          "200": 13,
+          "404": 3
+        },
+        "block_reasons": {},
+        "median_duration_ms": 1.72
+      },
+      "primary_block_reason": null
+    },
+    {
+      "profile": "cdn-standard",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "traced",
+      "rung": 5,
+      "exit_code": 0,
+      "measured": {
+        "requests": 4,
+        "total_bytes": 17190,
+        "cpu_seconds": 0.0384,
+        "wall_seconds": 0.042,
+        "records_returned": 60,
+        "records_verified": 60,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 14.0,
+        "note": "合成类人轨迹。工时主要花在搞清楚\"随机化 sleep 不够，必须有加减速剖面\"。 注意：真实的行为层防御会识破合成轨迹并逼出真浏览器，所以本实现测出的 L5 成本是**下界**，不是真实成本。"
+      },
+      "cost": {
+        "proxy_usd": 8.6e-07,
+        "compute_usd": 4.3e-07,
+        "solve_usd": 0.0,
+        "measured_per_10k": 0.00021436,
+        "dev_amortized_per_10k": 2.24,
+        "total_per_10k": 2.240214,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 60,
+        "retry_amplification": 1.0
+      },
+      "meter": {
+        "requests": 4,
+        "total_bytes": 17190,
+        "bytes_per_request": 4297.5,
+        "status_counts": {
+          "200": 4
+        },
+        "block_reasons": {},
+        "median_duration_ms": 0.61
+      },
+      "primary_block_reason": null
+    },
+    {
+      "profile": "api-signed",
+      "mode": "diagnostic",
+      "form": "gate",
+      "attacker": "naive",
+      "rung": 0,
+      "exit_code": 1,
+      "measured": {
+        "requests": 15,
+        "total_bytes": 9345,
+        "cpu_seconds": 0.0405,
+        "wall_seconds": 0.051,
+        "records_returned": 0,
+        "records_verified": 0,
+        "solves": 0
+      },
+      "declared": {
+        "dev_hours": 0.1,
+        "note": "裸 GET。基线，用于确认后面几级的额外成本全部来自防御而非实现复杂度。"
+      },
+      "cost": {
+        "proxy_usd": 4.7e-07,
+        "compute_usd": 4.5e-07,
+        "solve_usd": 0.0,
+        "measured_per_10k": Infinity,
+        "dev_amortized_per_10k": 0.016,
+        "total_per_10k": Infinity,
+        "proxy_tier": "datacenter",
+        "rates_version": 1,
+        "verified": 0,
+        "retry_amplification": Infinity
+      },
+      "meter": {
+        "requests": 15,
+        "total_bytes": 9345,
+        "bytes_per_request": 623.0,
+        "status_counts": {
+          "403": 15
+        },
+        "block_reasons": {
+          "ja3_absent": 15
+        },
+        "median_duration_ms": 0.38
+      },
+      "primary_block_reason": "ja3_absent"
+    },
+    {
       "profile": "api-signed",
       "mode": "diagnostic",
       "form": "gate",
@@ -339,8 +340,8 @@
       "measured": {
         "requests": 15,
         "total_bytes": 12630,
-        "cpu_seconds": 0.0417,
-        "wall_seconds": 0.051,
+        "cpu_seconds": 0.0397,
+        "wall_seconds": 0.049,
         "records_returned": 0,
         "records_verified": 0,
         "solves": 0
@@ -351,7 +352,7 @@
       },
       "cost": {
         "proxy_usd": 6.3e-07,
-        "compute_usd": 4.6e-07,
+        "compute_usd": 4.4e-07,
         "solve_usd": 0.0,
         "measured_per_10k": Infinity,
         "dev_amortized_per_10k": 0.08,
@@ -371,7 +372,7 @@
         "block_reasons": {
           "sign_missing": 15
         },
-        "median_duration_ms": 0.39
+        "median_duration_ms": 0.4
       },
       "primary_block_reason": "sign_missing"
     },
@@ -385,8 +386,8 @@
       "measured": {
         "requests": 4,
         "total_bytes": 10839,
-        "cpu_seconds": 0.0403,
-        "wall_seconds": 0.045,
+        "cpu_seconds": 0.0392,
+        "wall_seconds": 0.044,
         "records_returned": 60,
         "records_verified": 60,
         "solves": 0
@@ -397,11 +398,11 @@
       },
       "cost": {
         "proxy_usd": 5.4e-07,
-        "compute_usd": 4.5e-07,
+        "compute_usd": 4.4e-07,
         "solve_usd": 0.0,
-        "measured_per_10k": 0.00016495,
+        "measured_per_10k": 0.00016292,
         "dev_amortized_per_10k": 0.96,
-        "total_per_10k": 0.960165,
+        "total_per_10k": 0.960163,
         "proxy_tier": "datacenter",
         "rates_version": 1,
         "verified": 60,
@@ -415,7 +416,7 @@
           "200": 4
         },
         "block_reasons": {},
-        "median_duration_ms": 0.69
+        "median_duration_ms": 0.61
       },
       "primary_block_reason": null
     },
@@ -429,8 +430,8 @@
       "measured": {
         "requests": 4,
         "total_bytes": 13047,
-        "cpu_seconds": 0.0388,
-        "wall_seconds": 0.043,
+        "cpu_seconds": 0.0403,
+        "wall_seconds": 0.046,
         "records_returned": 60,
         "records_verified": 60,
         "solves": 0
@@ -441,11 +442,11 @@
       },
       "cost": {
         "proxy_usd": 6.5e-07,
-        "compute_usd": 4.3e-07,
+        "compute_usd": 4.5e-07,
         "solve_usd": 0.0,
-        "measured_per_10k": 0.00018058,
+        "measured_per_10k": 0.00018335,
         "dev_amortized_per_10k": 1.6,
-        "total_per_10k": 1.600181,
+        "total_per_10k": 1.600183,
         "proxy_tier": "datacenter",
         "rates_version": 1,
         "verified": 60,
@@ -459,7 +460,7 @@
           "200": 4
         },
         "block_reasons": {},
-        "median_duration_ms": 0.68
+        "median_duration_ms": 0.64
       },
       "primary_block_reason": null
     },
@@ -471,10 +472,10 @@
       "rung": 4,
       "exit_code": 0,
       "measured": {
-        "requests": 13,
-        "total_bytes": 863574,
-        "cpu_seconds": 0.5862,
-        "wall_seconds": 3.707,
+        "requests": 16,
+        "total_bytes": 867816,
+        "cpu_seconds": 0.5775,
+        "wall_seconds": 3.766,
         "records_returned": 60,
         "records_verified": 60,
         "solves": 0
@@ -484,26 +485,27 @@
         "note": "不逆向，直接在真浏览器里跑站点自己的 sign.js。dev_hours 极低（只花在 Playwright 接线和抹自动化痕迹上），代价是高昂的边际成本——唯一真正付出 浏览器 CPU 与整页流量的实现。与 signed 的取舍恰好相反。过不了 hardened 的 paranoid WebGL 校验（headless 软件渲染），这个边界本身是一条结论。"
       },
       "cost": {
-        "proxy_usd": 4.318e-05,
-        "compute_usd": 6.51e-06,
+        "proxy_usd": 4.339e-05,
+        "compute_usd": 6.42e-06,
         "solve_usd": 0.0,
-        "measured_per_10k": 0.00828201,
+        "measured_per_10k": 0.00830124,
         "dev_amortized_per_10k": 0.24,
-        "total_per_10k": 0.248282,
+        "total_per_10k": 0.248301,
         "proxy_tier": "datacenter",
         "rates_version": 1,
         "verified": 60,
         "retry_amplification": 1.0
       },
       "meter": {
-        "requests": 13,
-        "total_bytes": 863574,
-        "bytes_per_request": 66428.8,
+        "requests": 16,
+        "total_bytes": 867816,
+        "bytes_per_request": 54238.5,
         "status_counts": {
-          "200": 13
+          "200": 13,
+          "404": 3
         },
         "block_reasons": {},
-        "median_duration_ms": 3.28
+        "median_duration_ms": 1.68
       },
       "primary_block_reason": null
     },
@@ -517,8 +519,8 @@
       "measured": {
         "requests": 4,
         "total_bytes": 17531,
-        "cpu_seconds": 0.0394,
-        "wall_seconds": 0.043,
+        "cpu_seconds": 0.0408,
+        "wall_seconds": 0.045,
         "records_returned": 60,
         "records_verified": 60,
         "solves": 0
@@ -529,11 +531,11 @@
       },
       "cost": {
         "proxy_usd": 8.8e-07,
-        "compute_usd": 4.4e-07,
+        "compute_usd": 4.5e-07,
         "solve_usd": 0.0,
-        "measured_per_10k": 0.00021905,
+        "measured_per_10k": 0.00022165,
         "dev_amortized_per_10k": 2.24,
-        "total_per_10k": 2.240219,
+        "total_per_10k": 2.240222,
         "proxy_tier": "datacenter",
         "rates_version": 1,
         "verified": 60,
@@ -547,7 +549,7 @@
           "200": 4
         },
         "block_reasons": {},
-        "median_duration_ms": 0.64
+        "median_duration_ms": 0.65
       },
       "primary_block_reason": null
     }

@@ -49,7 +49,7 @@ def vm_salt(seed: str, vm_token: str) -> str:
 def runtime_salt(seed: str, env_snapshot: str) -> str:
     """`runtime` 档的 salt：derived 的结果再与环境快照绑定。
 
-    env_snapshot 是 X-CL-Env 头的原始值（base64 串本身，不解码）。
+    env_snapshot 是 X-BW-Env 头的原始值（base64 串本身，不解码）。
     服务端按同样方式重算，因此客户端必须提交与签名时一致的环境快照。
     """
     base = derive_salt(seed)

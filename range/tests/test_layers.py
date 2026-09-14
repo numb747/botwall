@@ -48,7 +48,7 @@ def make_probe(**overrides) -> Probe:
 
 
 def signed_headers(
-    probe: Probe, *, salt_mode="derived", seed="s", static_salt="cl-demo-salt", env=""
+    probe: Probe, *, salt_mode="derived", seed="s", static_salt="bw-demo-salt", env=""
 ) -> dict[str, str]:
     ts = str(int(probe.received_at * 1000))
     nonce = hashlib.sha256(f"{ts}{probe.path}".encode()).hexdigest()[:16]
@@ -63,9 +63,9 @@ def signed_headers(
         ts=ts,
         nonce=nonce,
     )
-    headers = {"x-cl-ts": ts, "x-cl-nonce": nonce, "x-cl-sign": sig}
+    headers = {"x-bw-ts": ts, "x-bw-nonce": nonce, "x-bw-sign": sig}
     if env:
-        headers["x-cl-env"] = env
+        headers["x-bw-env"] = env
     return headers
 
 
@@ -120,7 +120,7 @@ FP = {
 
 def test_l2_script_client_always_rejected(state):
     layer = TransportLayer(Strength.LENIENT, {"fingerprints": FP})
-    verdict = layer.inspect(make_probe(headers={"X-CL-JA3": "JA3_REQUESTS"}), state)
+    verdict = layer.inspect(make_probe(headers={"X-BW-JA3": "JA3_REQUESTS"}), state)
     assert not verdict.passed
     assert verdict.reason == "ja3_known_script_client"
     # 关键：被 L2 拦住不需要离开阶梯 L0，换个客户端库即可
@@ -128,7 +128,7 @@ def test_l2_script_client_always_rejected(state):
 
 
 def test_l2_allowlist_only_at_strict(state):
-    probe = make_probe(headers={"X-CL-JA3": "JA3_UNKNOWN"})
+    probe = make_probe(headers={"X-BW-JA3": "JA3_UNKNOWN"})
     assert TransportLayer(Strength.LENIENT, {"fingerprints": FP}).inspect(probe, state).passed
     verdict = TransportLayer(Strength.STRICT, {"fingerprints": FP}).inspect(probe, state)
     assert verdict.reason == "ja3_not_in_allowlist"
@@ -139,7 +139,7 @@ def test_l2_ua_cross_check(state):
     # 握手是 Firefox 的形状，UA 却自称 Chrome
     probe = make_probe(
         headers={
-            "X-CL-JA3": "JA3_FIREFOX",
+            "X-BW-JA3": "JA3_FIREFOX",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/142.0.0.0 Safari/537.36",
         }
     )
@@ -153,7 +153,7 @@ def test_l2_consistent_passes(state):
     layer = TransportLayer(Strength.PARANOID, {"fingerprints": FP})
     probe = make_probe(
         headers={
-            "X-CL-JA3": "JA3_CHROME",
+            "X-BW-JA3": "JA3_CHROME",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/142.0.0.0 Safari/537.36",
         }
     )
@@ -214,19 +214,19 @@ def test_l3_runtime_mode_binds_env(state):
     headers = signed_headers(probe, salt_mode="runtime", seed="s", env=env)
     assert layer.inspect(make_probe(headers=headers), state).passed
 
-    tampered = dict(headers, **{"x-cl-env": b64({"userAgent": "y"})})
+    tampered = dict(headers, **{"x-bw-env": b64({"userAgent": "y"})})
     assert layer.inspect(make_probe(headers=tampered), RangeState()).reason == "sign_mismatch"
 
 
 def test_l3_lenient_leaks_expected_value(state):
     """lenient 是教学档，会给出期望签名。确认它确实泄露，且 strict 不泄露。"""
     lenient = ProtocolLayer(Strength.LENIENT, {"salt_mode": "derived", "seed": "s"})
-    probe = make_probe(headers={"x-cl-ts": str(int(time.time() * 1000)), "x-cl-nonce": "n1", "x-cl-sign": "bad"})
+    probe = make_probe(headers={"x-bw-ts": str(int(time.time() * 1000)), "x-bw-nonce": "n1", "x-bw-sign": "bad"})
     verdict = lenient.inspect(probe, state)
     assert "expected" in verdict.detail
 
     strict = ProtocolLayer(Strength.STRICT, {"salt_mode": "derived", "seed": "s"})
-    probe2 = make_probe(headers={"x-cl-ts": str(int(time.time() * 1000)), "x-cl-nonce": "n2", "x-cl-sign": "bad"})
+    probe2 = make_probe(headers={"x-bw-ts": str(int(time.time() * 1000)), "x-bw-nonce": "n2", "x-bw-sign": "bad"})
     assert "expected" not in strict.inspect(probe2, state).detail
 
 
@@ -248,7 +248,7 @@ GOOD_ENV = {
 
 
 def env_probe(env: dict) -> Probe:
-    return make_probe(headers={"X-CL-Env": b64(env), "User-Agent": env.get("userAgent", "")})
+    return make_probe(headers={"X-BW-Env": b64(env), "User-Agent": env.get("userAgent", "")})
 
 
 def test_l4_good_env_passes(state):
@@ -345,7 +345,7 @@ def robot_trace() -> list[dict]:
 
 
 def trace_probe(events: list[dict]) -> Probe:
-    return make_probe(headers={"X-CL-Trace": b64(events)})
+    return make_probe(headers={"X-BW-Trace": b64(events)})
 
 
 def test_l5_human_trace_passes(state):
@@ -436,7 +436,7 @@ def test_l6_pow_roundtrip(state):
             break
     assert solution is not None
 
-    probe = make_probe(cookies={"cl_session": "sess1"}, headers={"X-CL-Captcha": solution})
+    probe = make_probe(cookies={"bw_session": "sess1"}, headers={"X-BW-Captcha": solution})
     assert layer.inspect(probe, state).passed
     # 一题一用：通过后挑战作废
     assert layer.inspect(probe, state).reason == "captcha_required"
@@ -444,7 +444,7 @@ def test_l6_pow_roundtrip(state):
 
 def test_l6_requires_challenge_first(state):
     layer = CaptchaLayer(Strength.LENIENT, {"kind": "pow"})
-    probe = make_probe(cookies={"cl_session": "s"}, headers={"X-CL-Captcha": "x"})
+    probe = make_probe(cookies={"bw_session": "s"}, headers={"X-BW-Captcha": "x"})
     assert layer.inspect(probe, state).reason == "captcha_required"
 
 
@@ -456,8 +456,8 @@ def test_l6_slider_needs_position_and_trace(state):
 
     # 位置对但轨迹是机器的
     probe = make_probe(
-        cookies={"cl_session": "s"},
-        headers={"X-CL-Captcha": str(gap), "X-CL-Trace": b64(robot_trace())},
+        cookies={"bw_session": "s"},
+        headers={"X-BW-Captcha": str(gap), "X-BW-Trace": b64(robot_trace())},
     )
     assert layer.inspect(probe, state).reason == "captcha_failed"
 
@@ -465,8 +465,8 @@ def test_l6_slider_needs_position_and_trace(state):
     layer.issue_challenge("s", state)
     gap = state.pending_challenges["s"]["gap_x"]
     probe = make_probe(
-        cookies={"cl_session": "s"},
-        headers={"X-CL-Captcha": str(gap), "X-CL-Trace": b64(human_trace())},
+        cookies={"bw_session": "s"},
+        headers={"X-BW-Captcha": str(gap), "X-BW-Trace": b64(human_trace())},
     )
     assert layer.inspect(probe, state).passed
 
@@ -517,12 +517,12 @@ def test_captcha_only_triggers_above_threshold(state):
     ]
     gate = Gate(layers, form="score", score_threshold=1.0, captcha_trigger_score=0.5)
 
-    clean = gate.evaluate(make_probe(client_ip="127.0.0.1", cookies={"cl_session": "s"}), state)
+    clean = gate.evaluate(make_probe(client_ip="127.0.0.1", cookies={"bw_session": "s"}), state)
     assert clean.allowed
     assert "l6_captcha" not in [v.layer for v in clean.verdicts]
 
     dirty = gate.evaluate(
-        make_probe(client_ip="3.1.2.3", cookies={"cl_session": "s"}), RangeState()
+        make_probe(client_ip="3.1.2.3", cookies={"bw_session": "s"}), RangeState()
     )
     assert not dirty.allowed
     assert "l6_captcha" in [v.layer for v in dirty.verdicts]

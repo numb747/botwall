@@ -33,8 +33,8 @@ class ProtocolLayer(Layer):
         self.salt_mode: str = self.opt("salt_mode", "static")
         if self.salt_mode not in ("static", "derived", "runtime", "vm"):
             raise ValueError(f"{self.id}: 未知的 salt_mode {self.salt_mode!r}")
-        self.seed: str = self.opt("seed", "cl-demo-seed")
-        self.static_salt: str = self.opt("static_salt", "cl-demo-salt")
+        self.seed: str = self.opt("seed", "bw-demo-seed")
+        self.static_salt: str = self.opt("static_salt", "bw-demo-salt")
         self.ts_window: float = float(self.opt("ts_window_seconds", 60.0))
 
     @property
@@ -49,9 +49,9 @@ class ProtocolLayer(Layer):
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
         rung = self.effective_rung
-        ts_raw = probe.header("x-cl-ts")
-        nonce = probe.header("x-cl-nonce")
-        provided = probe.header("x-cl-sign")
+        ts_raw = probe.header("x-bw-ts")
+        nonce = probe.header("x-bw-nonce")
+        provided = probe.header("x-bw-sign")
 
         if not (ts_raw and nonce and provided):
             return self._fail_at(
@@ -60,9 +60,9 @@ class ProtocolLayer(Layer):
                 missing=[
                     name
                     for name, value in (
-                        ("X-CL-Ts", ts_raw),
-                        ("X-CL-Nonce", nonce),
-                        ("X-CL-Sign", provided),
+                        ("X-BW-Ts", ts_raw),
+                        ("X-BW-Nonce", nonce),
+                        ("X-BW-Sign", provided),
                     )
                     if not value
                 ],
@@ -86,8 +86,8 @@ class ProtocolLayer(Layer):
             salt_mode=self.salt_mode,
             seed=self.seed,
             static_salt=self.static_salt,
-            env_snapshot=probe.header("x-cl-env"),
-            vm_token=probe.header("x-cl-vm").strip().lower(),
+            env_snapshot=probe.header("x-bw-env"),
+            vm_token=probe.header("x-bw-vm").strip().lower(),
             method=probe.method,
             path=probe.path,
             canonical_query=probe.canonical_query,

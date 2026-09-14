@@ -3,19 +3,19 @@
 靶场是被测对象，harness 是量具。
 
 ```bash
-costladder scan                             # 全 profile × 全攻击实现
-costladder scan -p api-signed -a signed     # 指定组合
-costladder scan --mode blind                # 测投毒与排障成本
-costladder scan --proxy-tier residential    # 换代理档位重算
-costladder attackers                        # 列出攻击实现及申报工时
-costladder rates                            # 看当前价格表
+botwall scan                             # 全 profile × 全攻击实现
+botwall scan -p api-signed -a signed     # 指定组合
+botwall scan --mode blind                # 测投毒与排障成本
+botwall scan --proxy-tier residential    # 换代理档位重算
+botwall attackers                        # 列出攻击实现及申报工时
+botwall rates                            # 看当前价格表
 ```
 
 ---
 
 ## 计量是强制的
 
-攻击实现拿到的 `CL_TARGET` 指向 harness 的计量反向代理，**不是靶场**。它不知道靶场的真实地址，因此无法绕过计量。
+攻击实现拿到的 `BW_TARGET` 指向 harness 的计量反向代理，**不是靶场**。它不知道靶场的真实地址，因此无法绕过计量。
 
 | 项 | 记账方式 | 攻击实现能否影响 |
 |---|---|---|
@@ -61,7 +61,7 @@ blind 模式下靶场返回 **HTTP 200 + 投毒数据**。只统计状态码会�
 ### 协议
 
 ```
-输入   环境变量 CL_TARGET / CL_ITEMS_WANTED / CL_PAGE_SIZE
+输入   环境变量 BW_TARGET / BW_ITEMS_WANTED / BW_PAGE_SIZE
 输出   stdout 逐行 JSONL，每行一条采到的记录
 诊断   stderr（单独捕获，不参与计量）
 退出   0 = 采够了，非 0 = 放弃
@@ -73,7 +73,7 @@ blind 模式下靶场返回 **HTTP 200 + 投毒数据**。只统计状态码会�
 
 ## 实测结果（v0.1）
 
-`costladder scan -p cdn-standard -p api-signed -n 60`，价格表 v1，数据中心代理档。完整结果见 `results/v0.1-scan.json`。
+`botwall scan -p cdn-standard -p api-signed -n 60`，价格表 v1，数据中心代理档。完整结果见 `results/v0.1-scan.json`。
 
 ```
 ══ cdn-standard [diagnostic/gate] ══
@@ -130,8 +130,8 @@ traced       L5     60   1.00×   2.16e-04       2.24      2.24    —
 
 复现（residential 档，跨过交叉点）：
 ```bash
-costladder scan -p api-signed -a signed -a browser --proxy-tier residential --annual-records 10000000   # browser 赢
-costladder scan -p api-signed -a signed -a browser --proxy-tier residential --annual-records 60000000   # signed 赢
+botwall scan -p api-signed -a signed -a browser --proxy-tier residential --annual-records 10000000   # browser 赢
+botwall scan -p api-signed -a signed -a browser --proxy-tier residential --annual-records 60000000   # signed 赢
 ```
 
 ---
@@ -140,8 +140,8 @@ costladder scan -p api-signed -a signed -a browser --proxy-tier residential --an
 
 这些数字**不能直接外推到真实站点**：
 
-1. **`browser` 的整页流量已建模，但页面权重是可调的估计值。** 靶场落地页加载约 800 KB 确定性生成的资产（`app/assets.py`，用 `CL_PAGE_WEIGHT` 缩放），使 `browser` 相对 `signed` 的 ~48× 边际差如实显形。但真实站点从 0.5 MB 到 5 MB 不等，交叉点随之左右移动——上表的两个交叉点是本权重下的值，不是普适常数。此外 localhost 没有真实代理的延迟与失败率，这部分尚未建模。
-2. **`tlsfront` 未实现**，L2 靠客户端自报 `X-CL-JA3`（`browser` 用 Playwright 的 extra headers 附上，与 HTTP 实现同一套开发模式替身）。真实的指纹伪装成本（换库）依然接近零，结论方向不变，绝对数字会变。
+1. **`browser` 的整页流量已建模，但页面权重是可调的估计值。** 靶场落地页加载约 800 KB 确定性生成的资产（`app/assets.py`，用 `BW_PAGE_WEIGHT` 缩放），使 `browser` 相对 `signed` 的 ~48× 边际差如实显形。但真实站点从 0.5 MB 到 5 MB 不等，交叉点随之左右移动——上表的两个交叉点是本权重下的值，不是普适常数。此外 localhost 没有真实代理的延迟与失败率，这部分尚未建模。
+2. **`tlsfront` 未实现**，L2 靠客户端自报 `X-BW-JA3`（`browser` 用 Playwright 的 extra headers 附上，与 HTTP 实现同一套开发模式替身）。真实的指纹伪装成本（换库）依然接近零，结论方向不变，绝对数字会变。
 3. **`enveloped` / `traced` 的合成手段过得了靶场，过不了真实防御。** 真实运行时层会用更强的判据（WebGL 与设备类别的对照、轨迹与渲染帧率的相关性）识破合成，逼出真浏览器。所以它们测出的成本是**下界**。
 4. **`dev_hours` 是申报值。** 逆向工时的估计天然不精确，结论应当对它做敏感性分析，而不是依赖单点值。上面的交叉点分析本身就是这种敏感性分析的一个例子。
 

@@ -1,6 +1,6 @@
-"""CostLadder harness —— 成本核算与阶梯扫描。
+"""botwall harness —— 成本核算与阶梯扫描。
 
-    from costladder_harness import load_rates, load_attackers, run_once, decision_table
+    from botwall_harness import load_rates, load_attackers, run_once, decision_table
 """
 
 from .cost import CostBreakdown, Declared, Measured, compute

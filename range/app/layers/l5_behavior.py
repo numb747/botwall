@@ -75,7 +75,7 @@ class BehaviorLayer(Layer):
     REQUIRED_SEQUENCE: ClassVar[tuple[str, ...]] = ("mousemove", "mousedown", "mouseup", "click")
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
-        raw = probe.header("x-cl-trace")
+        raw = probe.header("x-bw-trace")
         if not raw:
             return self._fail("trace_missing", score=float(self.opt("missing_score", 1.0)))
 

@@ -13,7 +13,7 @@
 的原始大小。所以生成的是不可压缩的伪随机字节并原样传输——计量到的就等于
 过线量，避免了"服务端要不要 gzip、代理按压缩前还是压缩后计费"这一堆纠缠。
 
-尺寸可用环境变量 CL_PAGE_WEIGHT 整体缩放（默认 1.0），便于做敏感性分析。
+尺寸可用环境变量 BW_PAGE_WEIGHT 整体缩放（默认 1.0），便于做敏感性分析。
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _ASSET_KB: dict[str, tuple[int, str]] = {
 
 def _weight() -> float:
     try:
-        return max(0.0, float(os.environ.get("CL_PAGE_WEIGHT", "1.0")))
+        return max(0.0, float(os.environ.get("BW_PAGE_WEIGHT", "1.0")))
     except ValueError:
         return 1.0
 

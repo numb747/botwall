@@ -8,7 +8,7 @@
 指纹从哪来
 ----------
 TLS 指纹在应用层拿不到，需要前置的 tlsfront 代理解析 ClientHello 原始字节、
-计算 JA3，再以 X-CL-JA3 头转发。纯 HTTP 的本地开发模式下该头可被客户端伪造,
+计算 JA3，再以 X-BW-JA3 头转发。纯 HTTP 的本地开发模式下该头可被客户端伪造,
 这是有意为之，便于单测；启用 tlsfront 后代理会强制覆盖该头。
 
 指纹名单来自 profile 引用的指纹集（range/fingerprints/*.yaml）。仓库内置的
@@ -56,7 +56,7 @@ class TransportLayer(Layer):
         self.browsers: dict[str, str] = dict(fp.get("browsers", {}))
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
-        ja3 = probe.header("x-cl-ja3")
+        ja3 = probe.header("x-bw-ja3")
         if not ja3:
             # 没有前置代理、客户端也没自报。lenient 档放行（便于本地开发），
             # 更高档位视为不可验证即拒绝。
@@ -65,7 +65,7 @@ class TransportLayer(Layer):
             return self._fail(
                 "ja3_absent",
                 score=float(self.opt("absent_score", 0.5)),
-                hint="需要前置 tlsfront 代理，或在开发模式下自行设置 X-CL-JA3",
+                hint="需要前置 tlsfront 代理，或在开发模式下自行设置 X-BW-JA3",
             )
 
         if ja3 in self.script_clients:

@@ -4,7 +4,7 @@
 
 逆向过程（这就是申报的 dev_hours 花在哪儿）
 ------------------------------------------
-1. 抓包发现失败响应是 `sign_missing`，缺 X-CL-Ts / X-CL-Nonce / X-CL-Sign。
+1. 抓包发现失败响应是 `sign_missing`，缺 X-BW-Ts / X-BW-Nonce / X-BW-Sign。
 2. 同一接口连续调两次做 diff：变化的只有这三个头，其余全同。
    -> 说明签名的输入里含时间戳和随机数，不含任何服务端下发的会话密钥。
 3. 把 lenient 档的响应打开（教学档会回显 signed_payload），确认序列化格式是
@@ -70,7 +70,7 @@ class Signed(Attacker):
     def _compute_salt(self) -> str | None:
         if self.salt_mode == "static":
             # static 档的 salt 明文写在 sign.js 里，读一遍即可
-            return "cl-demo-salt"
+            return "bw-demo-salt"
         if self.salt_mode == "derived":
             return derive_salt(self.seed or "")
         # runtime 档这里处理不了：salt 与环境快照绑定，见 enveloped.py
@@ -81,8 +81,8 @@ class Signed(Attacker):
             "User-Agent": UA,
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "zh-CN,zh;q=0.9",
-            "X-CL-JA3": "PLACEHOLDER_JA3_CHROME_142",
-            "X-CL-Session": self.session,
+            "X-BW-JA3": "PLACEHOLDER_JA3_CHROME_142",
+            "X-BW-Session": self.session,
         }
         if self._salt is None:
             return headers
@@ -92,9 +92,9 @@ class Signed(Attacker):
         # nonce_replayed 拦掉。这条约束正是"必须真正复现算法"的原因。
         nonce = os.urandom(12).hex()
         payload = "\n".join(("GET", path, self.canonical_query(params), ts, nonce))
-        headers["X-CL-Ts"] = ts
-        headers["X-CL-Nonce"] = nonce
-        headers["X-CL-Sign"] = sign(self._salt, payload)
+        headers["X-BW-Ts"] = ts
+        headers["X-BW-Nonce"] = nonce
+        headers["X-BW-Sign"] = sign(self._salt, payload)
         return headers
 
 

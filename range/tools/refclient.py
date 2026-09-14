@@ -114,18 +114,18 @@ def main() -> None:
         env = fake_env(UA)
         headers = {
             "User-Agent": UA,
-            "X-CL-JA3": args.ja3,
-            "X-CL-Session": secrets.token_hex(8),
-            "X-CL-Trace": human_trace(),
-            "X-CL-Env": env,
+            "X-BW-JA3": args.ja3,
+            "X-BW-Session": secrets.token_hex(8),
+            "X-BW-Trace": human_trace(),
+            "X-BW-Env": env,
         }
         if salt_mode:
-            headers["X-CL-Ts"] = ts
-            headers["X-CL-Nonce"] = nonce
-            headers["X-CL-Sign"] = signing.compute(
+            headers["X-BW-Ts"] = ts
+            headers["X-BW-Nonce"] = nonce
+            headers["X-BW-Sign"] = signing.compute(
                 salt_mode=salt_mode,
                 seed=boot["seed"],
-                static_salt="cl-demo-salt",
+                static_salt="bw-demo-salt",
                 env_snapshot=env,
                 method="GET",
                 path=path,

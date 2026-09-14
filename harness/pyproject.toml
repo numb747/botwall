@@ -1,13 +1,13 @@
 [project]
-name = "costladder-harness"
+name = "botwall-harness"
 version = "0.1.0"
-description = "CostLadder harness：强制计量的采集成本阶梯扫描"
+description = "botwall harness：强制计量的采集成本阶梯扫描"
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",
     # 靶场本身。harness 需要它的 verify_record 来分辨真值与投毒数据，
     # 也需要启动它作为被测对象。
-    "costladder-range",
+    "botwall-range",
 ]
 
 [project.optional-dependencies]
@@ -17,14 +17,14 @@ dev = ["pytest>=8.0"]
 browser = ["playwright>=1.40"]
 
 [project.scripts]
-costladder = "costladder_harness.cli:main"
+botwall = "botwall_harness.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["costladder_harness*"]
+include = ["botwall_harness*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

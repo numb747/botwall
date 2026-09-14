@@ -3,7 +3,7 @@
 启动：
     cd range && uvicorn app.main:app --reload --port 8900
 选择 profile：
-    CL_PROFILE=api-signed uvicorn app.main:app --port 8900
+    BW_PROFILE=api-signed uvicorn app.main:app --port 8900
 
 端点：
     GET  /                受保护的数据接口在哪、当前 profile 是什么
@@ -33,7 +33,7 @@ from .gate import Gate, GateResult
 from .layers import ProtocolLayer, RuntimeLayer, build_layers
 
 RANGE_ROOT = Path(__file__).resolve().parent.parent
-SESSION_COOKIE = "cl_session"
+SESSION_COOKIE = "bw_session"
 
 
 def _build(profile: Profile) -> tuple[Gate, list]:
@@ -56,9 +56,9 @@ def _load() -> Profile:
     profile 文件既繁琐又容易漂移。form 同理：gate 与 score 形态下同一套
     攻击实现的成本差，本身就是一个要测的量。
     """
-    profile = load_profile(os.environ.get("CL_PROFILE", "open"))
-    mode = os.environ.get("CL_MODE")
-    form = os.environ.get("CL_FORM")
+    profile = load_profile(os.environ.get("BW_PROFILE", "open"))
+    mode = os.environ.get("BW_MODE")
+    form = os.environ.get("BW_FORM")
     if mode or form:
         profile = replace(profile, mode=mode or profile.mode, form=form or profile.form)
     return profile
@@ -69,7 +69,7 @@ gate, active_layers = _build(profile)
 state = RangeState()
 
 app = FastAPI(
-    title="CostLadder Range",
+    title="botwall 靶场",
     version=__version__,
     description="可逐层开关的反自动化防御靶场。只用于本地测量，不针对任何第三方服务。",
 )
@@ -122,7 +122,7 @@ def _ensure_session(request: Request, response: Response) -> str:
 @app.get("/")
 async def index() -> dict[str, Any]:
     return {
-        "range": "CostLadder",
+        "range": "botwall",
         "version": __version__,
         "profile": profile.stamp,
         "description": profile.description,

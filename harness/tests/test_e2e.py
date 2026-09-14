@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from costladder_harness import load_attackers, load_rates, run_once
+from botwall_harness import load_attackers, load_rates, run_once
 
 pytestmark = pytest.mark.e2e
 

@@ -59,21 +59,21 @@ class Browser(Attacker):
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(headless=True)
                 context = browser.new_context(user_agent=UA)
-                context.set_extra_http_headers({"X-CL-JA3": JA3, "X-CL-Session": self.session})
+                context.set_extra_http_headers({"X-BW-JA3": JA3, "X-BW-Session": self.session})
                 context.add_init_script(STEALTH)
                 page = context.new_page()
 
-                # 导航到靶场的落地页。CL_TARGET 指向计量代理，所以页面本身、
+                # 导航到靶场的落地页。BW_TARGET 指向计量代理，所以页面本身、
                 # sign.js、bootstrap、items 的流量全部经过代理，一并计入成本。
                 page.goto(f"{self.target}/static/index.html", wait_until="networkidle")
-                page.wait_for_function("window.clFetch !== undefined", timeout=10000)
+                page.wait_for_function("window.bwFetch !== undefined", timeout=10000)
 
                 offset = 0
                 consecutive_failures = 0
                 while collected < self.wanted:
                     self._wander(page)  # 产生真实指针轨迹，供 L5 判定
                     result = page.evaluate(
-                        "async ([p, o, l]) => await window.clFetch(p, "
+                        "async ([p, o, l]) => await window.bwFetch(p, "
                         "{limit: String(l), offset: String(o)})",
                         ["/api/items", offset, self.page_size],
                     )

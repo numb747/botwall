@@ -115,7 +115,7 @@ class Gate:
                 result.allowed = False
                 result.required_rung = max(result.required_rung, verdict.ladder_rung)
                 if verdict.reason == "captcha_required":
-                    session = probe.cookies.get("cl_session") or probe.header("x-cl-session")
+                    session = probe.cookies.get("bw_session") or probe.header("x-bw-session")
                     if session:
                         result.challenge = self.captcha.issue_challenge(session, state)
 

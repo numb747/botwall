@@ -84,7 +84,7 @@ L2 只看 TLS 指纹，绝不顺带看 UA；L4 只看 JS 运行时环境，绝�
 
 **被它拦住意味着**：你的 HTTP 客户端选型不对。对应阶梯上从 `requests` 换到具备指纹伪装能力的客户端（`curl_cffi` 一类）。这一跳的**成本增量几乎为零**——换个库而已——所以它是整条阶梯上性价比最高的一级，但也是最容易被忽略的一级。很多人在这里被拦，却误判成"要上浏览器"，直接从 L2 跳到 L5，白白付出 50 倍成本。
 
-**实现说明**：TLS 指纹无法在应用层中间件里拿到，需要一个前置的 TLS 嗅探代理解析 ClientHello 原始字节、计算 JA3，再以 `X-CL-JA3` 头转发给应用。该组件是 `range/tlsfront`。在纯 HTTP 的本地开发模式下该头可被客户端伪造——这是**有意为之**，便于单测；启用 `tlsfront` 后代理会强制覆盖该头。
+**实现说明**：TLS 指纹无法在应用层中间件里拿到，需要一个前置的 TLS 嗅探代理解析 ClientHello 原始字节、计算 JA3，再以 `X-BW-JA3` 头转发给应用。该组件是 `range/tlsfront`。在纯 HTTP 的本地开发模式下该头可被客户端伪造——这是**有意为之**，便于单测；启用 `tlsfront` 后代理会强制覆盖该头。
 
 **原因码**：`ja3_known_script_client` / `ja3_not_in_allowlist` / `ja3_ua_mismatch` / `h2_fingerprint_mismatch`
 
@@ -101,9 +101,9 @@ L2 只看 TLS 指纹，绝不顺带看 UA；L4 只看 JS 运行时环境，绝�
 请求必须携带三个头：
 
 ```
-X-CL-Ts:    毫秒时间戳
-X-CL-Nonce: 客户端生成的随机串
-X-CL-Sign:  签名值
+X-BW-Ts:    毫秒时间戳
+X-BW-Nonce: 客户端生成的随机串
+X-BW-Sign:  签名值
 ```
 
 签名计算：
@@ -146,7 +146,7 @@ sign    = hex(sha256(salt + payload))[:32]
 
 **但这终究是"校验声明"，不是"要求证明"。** 手写一份互不矛盾的 JSON 就能过——harness 里的 `enveloped.py` 正是这么干的。保留它有教学价值，也如实反映了相当多生产环境的真实强度。
 
-**信号**（客户端需上报 `X-CL-Env`，内容为一段 JS 采集后编码的环境快照）
+**信号**（客户端需上报 `X-BW-Env`，内容为一段 JS 采集后编码的环境快照）
 - `navigator` 属性组间的一致性：`userAgent` / `platform` / `oscpu` / `hardwareConcurrency` / `languages`
 - WebGL `vendor` + `renderer` 与声称的 OS/浏览器是否匹配
 - Canvas 指纹的稳定性与合理性（全零、常见 headless 已知值、跨请求跳变均可疑）

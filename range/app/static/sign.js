@@ -1,5 +1,5 @@
 /**
- * CostLadder 靶场的参考客户端。
+ * botwall 靶场的参考客户端。
  *
  * 这份实现是"正确答案"——它展示一个合法客户端该怎么签名、怎么上报环境与轨迹。
  * 攻击侧的任务是在**不读这个文件**的前提下，从抓包结果复现出同样的行为。
@@ -121,7 +121,7 @@ async function canvasHash() {
     ctx.fillStyle = "#f60";
     ctx.fillRect(0, 0, 100, 20);
     ctx.fillStyle = "#069";
-    ctx.fillText("CostLadder \u{1F512}", 2, 2);
+    ctx.fillText("botwall \u{1F512}", 2, 2);
     return (await sha256Hex(c.toDataURL())).slice(0, 32);
   } catch {
     return "";
@@ -207,18 +207,18 @@ export async function signedFetch(path, params = {}) {
   let envSnapshot = "";
   if (saltMode === "runtime") {
     envSnapshot = await collectEnv();
-    headers["X-CL-Env"] = envSnapshot;
+    headers["X-BW-Env"] = envSnapshot;
   }
 
   // VM token 既可能被 L3 的 vm 档用来算 salt，也可能被 L4 的 vm 机制单独校验，
   // 所以只要挑战可取就算上：拿不到（未启用）时 loadVm 返回 null，这里得空串。
   const token = await vmToken(ts, nonce);
-  if (token) headers["X-CL-VM"] = token;
+  if (token) headers["X-BW-VM"] = token;
 
   let salt;
   if (saltMode === "static") {
     // static 档的 salt 明文写死在这里 —— 读一遍这个文件即可复现。
-    salt = "cl-demo-salt";
+    salt = "bw-demo-salt";
   } else if (saltMode === "derived") {
     salt = await deriveSalt(seed);
   } else if (saltMode === "runtime") {
@@ -231,12 +231,12 @@ export async function signedFetch(path, params = {}) {
 
   if (salt !== null) {
     const payload = canonicalPayload("GET", path, canonicalQuery(query), ts, nonce);
-    headers["X-CL-Ts"] = ts;
-    headers["X-CL-Nonce"] = nonce;
-    headers["X-CL-Sign"] = (await sha256Hex(salt + payload)).slice(0, 32);
+    headers["X-BW-Ts"] = ts;
+    headers["X-BW-Nonce"] = nonce;
+    headers["X-BW-Sign"] = (await sha256Hex(salt + payload)).slice(0, 32);
   }
 
-  if (trace.length > 0) headers["X-CL-Trace"] = traceHeader();
+  if (trace.length > 0) headers["X-BW-Trace"] = traceHeader();
 
   const qs = query.toString();
   return fetch(qs ? `${path}?${qs}` : path, { headers, credentials: "same-origin" });

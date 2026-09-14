@@ -100,7 +100,7 @@ class RuntimeLayer(Layer):
         字节码。
         """
         length, shuffle = _VM_PROFILE[self.strength]
-        seed = f"{self.opt('vm_seed', 'cl-vm')}::{session}"
+        seed = f"{self.opt('vm_seed', 'bw-vm')}::{session}"
         return vm.build_challenge(seed, length=length, shuffle_opcodes=shuffle)
 
     def inspect(self, probe: Probe, state: RangeState) -> Verdict:
@@ -116,29 +116,29 @@ class RuntimeLayer(Layer):
     # --- vm 机制：要求客户端执行现场下发的字节码 ---
 
     def _inspect_vm(self, probe: Probe) -> Verdict:
-        session = probe.cookies.get("cl_session") or probe.header("x-cl-session")
+        session = probe.cookies.get("bw_session") or probe.header("x-bw-session")
         if not session:
             return self._fail(
                 "vm_session_missing",
                 score=float(self.opt("missing_score", 1.0)),
-                hint="VM 挑战按会话派生，需要 cl_session cookie 或 X-CL-Session 头",
+                hint="VM 挑战按会话派生，需要 bw_session cookie 或 X-BW-Session 头",
             )
 
-        submitted = probe.header("x-cl-vm")
+        submitted = probe.header("x-bw-vm")
         if not submitted:
             return self._fail(
                 "vm_token_missing",
                 score=float(self.opt("missing_score", 1.0)),
-                hint="先取 /api/vm-challenge，在真实 JS 运行时里执行后提交 X-CL-VM",
+                hint="先取 /api/vm-challenge，在真实 JS 运行时里执行后提交 X-BW-VM",
             )
 
         # ts 与 nonce 在这里只作为 VM 的输入，不做时效判定——那是 L3 的维度，
         # 本层不重复判断。它们进输入是为了让**每个请求**都必须跑一次 VM。
         try:
-            ts_ms = int(probe.header("x-cl-ts") or "0")
+            ts_ms = int(probe.header("x-bw-ts") or "0")
         except ValueError:
-            return self._fail("vm_input_malformed", field="X-CL-Ts")
-        nonce = probe.header("x-cl-nonce")
+            return self._fail("vm_input_malformed", field="X-BW-Ts")
+        nonce = probe.header("x-bw-nonce")
 
         challenge = self.challenge_for(session)
         inputs = vm.make_inputs(vm.seed32_of(challenge.seed), ts_ms, nonce)
@@ -157,7 +157,7 @@ class RuntimeLayer(Layer):
     # --- env 机制：检查环境快照自洽性 ---
 
     def _inspect_env(self, probe: Probe) -> Verdict:
-        raw = probe.header("x-cl-env")
+        raw = probe.header("x-bw-env")
         if not raw:
             return self._fail("env_missing", score=float(self.opt("missing_score", 1.0)))
 
