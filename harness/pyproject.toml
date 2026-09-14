@@ -12,6 +12,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# browser 攻击实现需要 playwright。装法：
+#   pip install -e "harness[browser]" && playwright install chromium
+browser = ["playwright>=1.40"]
 
 [project.scripts]
 costladder = "costladder_harness.cli:main"

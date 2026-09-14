@@ -83,3 +83,23 @@ def test_cheapest_viable_rung_on_cdn_standard():
     traced = run_once("cdn-standard", ATTACKERS["traced"], RATES, items=40, page_size=20)
     assert spoofed.succeeded and traced.succeeded
     assert spoofed.cost.total_per_10k < traced.cost.total_per_10k
+
+
+def test_browser_runs_site_js_and_costs_more_at_margin():
+    """真浏览器跑站点自己的 sign.js 拿下 api-signed，且边际成本高于纯 HTTP。
+
+    browser 不逆向签名——它在真实运行时里执行 signedFetch。所以它能过
+    api-signed（L3 derived）就证明了这条"不逆向"的路径确实通。而它的边际
+    成本应显著高于 signed（真浏览器的 CPU + 整页流量）。
+    """
+    try:
+        import playwright.sync_api  # noqa: F401
+    except ImportError:
+        pytest.skip("未安装 playwright")
+
+    browser = run_once("api-signed", ATTACKERS["browser"], RATES, items=40, page_size=20)
+    signed = run_once("api-signed", ATTACKERS["signed"], RATES, items=40, page_size=20)
+    assert browser.succeeded, f"browser 未采到数据: {browser.attacker_stderr[-3:]}"
+    assert browser.measured.records_verified == 40
+    # 真浏览器加载整页 + Chromium CPU，边际成本必然高于纯 HTTP 的 signed
+    assert browser.cost.measured_per_10k > signed.cost.measured_per_10k

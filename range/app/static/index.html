@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <!--
+    真浏览器的落地页。它的存在是为了让"不逆向、直接跑站点自己的 JS"这条采集
+    路径可复现：浏览器加载这个页面 -> sign.js 在真实运行时里跑 -> signedFetch
+    用真实环境算 salt、附真实轨迹。攻击者一行签名逻辑都不用自己写。
+
+    这正是成本阶梯上半段的经济学：不付逆向工时（dev_hours≈0），改付浏览器的
+    边际成本（CPU、加载整套页面资源的流量）。与 signed.py 的取舍恰好相反。
+  -->
+  <head>
+    <meta charset="utf-8" />
+    <title>CostLadder Range</title>
+  </head>
+  <body>
+    <h1>CostLadder Range</h1>
+    <p id="status">loading…</p>
+    <div id="surface" style="width: 640px; height: 360px; background: #f0f0f0">
+      在这块区域移动指针会被 startTracing 记录，signedFetch 时作为 X-CL-Trace 提交。
+    </div>
+
+    <script type="module">
+      import { signedFetch, startTracing, collectEnv } from "./sign.js";
+
+      // 页面一加载就开始记录交互轨迹。真浏览器 + 真实鼠标事件产生的轨迹，
+      // 是否能过 L5 的 paranoid 档，本身就是一个要测的问题。
+      startTracing(document);
+
+      // 暴露给驱动方（Playwright）调用。签名、环境快照、轨迹全部在浏览器里完成。
+      window.clFetch = async (path, params) => {
+        const res = await signedFetch(path, params);
+        return { status: res.status, body: await res.json() };
+      };
+      window.clCollectEnv = collectEnv;
+
+      document.getElementById("status").textContent = "ready";
+    </script>
+  </body>
+</html>

@@ -81,11 +81,33 @@ def test_manifest_covers_every_attacker():
     assert on_disk == declared, f"清单与磁盘不一致：仅磁盘 {on_disk - declared}，仅清单 {declared - on_disk}"
 
 
-def test_manifest_rungs_are_monotonic_with_dev_hours():
-    """阶梯越高，申报工时应该越大。反过来说明申报有问题。"""
-    specs = sorted(load_attackers().values(), key=lambda s: s.rung)
-    hours = [s.dev_hours for s in specs]
-    assert hours == sorted(hours), f"工时未随阶梯递增: {[(s.name, s.rung, s.dev_hours) for s in specs]}"
+#: 逆向家族：靠一次性工时爬阶梯的纯 HTTP 实现。它们内部才有"越高越贵"。
+REVERSE_ENGINEERING_FAMILY = ("naive", "spoofed", "signed", "enveloped", "traced")
+
+
+def test_reverse_engineering_family_dev_hours_climb_with_rung():
+    """逆向家族内部：阶梯越高，申报工时应越大。
+
+    注意这条**只对逆向家族成立**。browser 是故意的反例——它用高边际成本
+    换掉逆向工时，以极低的 dev_hours 够到 L4，正是"能不能不用浏览器"这个
+    取舍的另一端。把它算进来会（正确地）打破单调性。
+    """
+    specs = load_attackers()
+    family = sorted(
+        (specs[n] for n in REVERSE_ENGINEERING_FAMILY if n in specs),
+        key=lambda s: s.rung,
+    )
+    hours = [s.dev_hours for s in family]
+    assert hours == sorted(hours), f"逆向家族工时未随阶梯递增: {[(s.name, s.rung, s.dev_hours) for s in family]}"
+
+
+def test_browser_trades_dev_hours_for_marginal_cost():
+    """browser 应当以远低于同级逆向实现的工时够到 L4。"""
+    specs = load_attackers()
+    if "browser" not in specs or "enveloped" not in specs:
+        pytest.skip("需要 browser 与 enveloped 才能比较")
+    assert specs["browser"].rung == specs["enveloped"].rung == 4
+    assert specs["browser"].dev_hours < specs["enveloped"].dev_hours
 
 
 # --- 成本模型 ---

@@ -41,6 +41,16 @@ attackers:
       伪造自洽的环境快照，并处理 runtime 档签名。工时与服务端的交叉校验项数
       成正比——每多一项校验就要多对齐一个字段。
 
+  browser:
+    entry: browser.py
+    rung: 4
+    dev_hours: 1.5
+    note: >-
+      不逆向，直接在真浏览器里跑站点自己的 sign.js。dev_hours 极低（只花在
+      Playwright 接线和抹自动化痕迹上），代价是高昂的边际成本——唯一真正付出
+      浏览器 CPU 与整页流量的实现。与 signed 的取舍恰好相反。过不了 hardened
+      的 paranoid WebGL 校验（headless 软件渲染），这个边界本身是一条结论。
+
   traced:
     entry: traced.py
     rung: 5

@@ -25,6 +25,10 @@ def _range_profiles() -> list[str]:
 
 def cmd_scan(args: argparse.Namespace) -> int:
     rates = load_rates(args.rates)
+    if args.annual_records is not None:
+        import dataclasses
+
+        rates = dataclasses.replace(rates, annual_records=args.annual_records)
     specs = load_attackers()
 
     profiles = args.profile or _range_profiles()
@@ -108,6 +112,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="代理档位：none / datacenter / residential / mobile",
     )
     scan.add_argument("--rates", help="价格表路径，默认 harness/rates.yaml")
+    scan.add_argument(
+        "--annual-records",
+        type=int,
+        help="覆盖年采集量，用于观察 signed 与 browser 的成本交叉点",
+    )
     scan.add_argument("-o", "--out", help="把完整结果写成 JSON")
     scan.set_defaults(func=cmd_scan)
 
