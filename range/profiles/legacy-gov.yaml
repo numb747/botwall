@@ -28,9 +28,11 @@ layers:
     strength: off
 
   l6_captcha:
-    # static_image 题型尚未实现（需要图像渲染依赖），暂用 pow 占位。
-    # 见 range/app/layers/l6_captcha.py 的 issue_challenge。
-    strength: lenient
+    # 服务端生成的扭曲字符图 —— 这正是政企后台的真实形态。
+    # strength 决定难度：lenient/strict/paranoid。三档都挡不住自训模型
+    # （生成器自带标注，训练集免费），它们只是依次抬高人类的阅读成本。
+    # 用 `python -m tools.captcha_dataset` 可以把这一点跑出来。
+    strength: strict
     options:
-      kind: pow
-      pow_difficulty: 16
+      kind: static_image
+      image_length: 5

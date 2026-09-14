@@ -15,16 +15,19 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import secrets
 from typing import Any, ClassVar
 
+from .. import captcha_image
 from ..core import Probe, RangeState, Strength, Verdict
 from .base import Layer
 from .l5_behavior import _coefficient_of_variation, _intervals, _path_straightness
 
-#: 支持的题型。static_image 的图像渲染尚未实现，见下方 issue_challenge。
+#: 支持的题型。三种的性质完全不同：pow 是算力成本，slider 是轨迹质量，
+#: static_image 是一个已被淘汰的范式（保留它是因为政企后台仍在用）。
 KINDS = ("pow", "slider", "static_image")
 
 
@@ -63,17 +66,32 @@ class CaptchaLayer(Layer):
                 "tolerance": int(self.opt("slider_tolerance", 5)),
             }
         else:  # static_image
-            raise NotImplementedError(
-                "static_image 题型尚未实现（需要图像渲染依赖）。"
-                "保留该题型是为了如实反映：这类验证码在面向消费者的大流量站点"
-                "已基本绝迹，但在政企与传统行业后台仍大量存在。"
+            # 难度跟随本层的强度档。三档都挡不住自训模型——它们只是依次抬高
+            # **人类**的阅读成本。见 app/captcha_image.py 开头的说明。
+            difficulty = {
+                Strength.LENIENT: "lenient",
+                Strength.STRICT: "strict",
+                Strength.PARANOID: "paranoid",
+            }[self.strength]
+            issued = captcha_image.generate(
+                f"{self.opt('image_seed', 'bw-img')}::{session}::{secrets.token_hex(4)}",
+                difficulty=difficulty,
+                length=int(self.opt("image_length", 5)),
             )
+            challenge = {
+                "kind": "static_image",
+                "id": secrets.token_hex(8),
+                "answer": issued.text,
+                "png_base64": base64.b64encode(issued.png).decode(),
+                "difficulty": difficulty,
+            }
 
         state.pending_challenges[session] = challenge
         # 返回给客户端的副本里去掉答案
         public = dict(challenge)
-        if self.kind == "slider":
-            public.pop("gap_x", None)
+        # 答案绝不能进下发给客户端的副本
+        public.pop("gap_x", None)
+        public.pop("answer", None)
         return public
 
     # --- 判题 ---
@@ -93,6 +111,8 @@ class CaptchaLayer(Layer):
 
         if challenge["kind"] == "pow":
             ok, detail = self._verify_pow(challenge, solution)
+        elif challenge["kind"] == "static_image":
+            ok, detail = self._verify_image(challenge, solution)
         else:
             ok, detail = self._verify_slider(challenge, solution, probe)
 
@@ -113,6 +133,12 @@ class CaptchaLayer(Layer):
             "leading_zeros": leading_zeros,
             "required_bits": required,
         }
+
+    def _verify_image(self, challenge: dict[str, Any], solution: str) -> tuple[bool, dict]:
+        """大小写不敏感比对。真实实现都这样——否则人类失败率没法看。"""
+        expected = str(challenge["answer"])
+        ok = hmac.compare_digest(expected.upper(), solution.strip().upper())
+        return ok, {"length": len(expected), "difficulty": challenge.get("difficulty")}
 
     def _verify_slider(
         self, challenge: dict[str, Any], solution: str, probe: Probe

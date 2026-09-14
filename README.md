@@ -31,7 +31,7 @@ botwall 补的就是这个空白：
 | **L3 协议** | **请求签名、时效、重放** | **还没复现签名 ← 成本差最大的分水岭** |
 | **L4 运行时** | **`env`：环境属性自洽性；`vm`：随机化虚拟机挑战** | **需要真实 JS 运行时** |
 | **L5 行为** | **`stats`：轨迹统计特征；`task`：几何任务** | **需要真浏览器 + 可信交互** |
-| L6 验证码 | 一道题（默认关闭，仅在前五层累计风险分超阈值时触发） | 前面已经露馅了 |
+| L6 验证码 | `pow` / `slider` / `static_image`（默认关闭，仅在前五层累计风险分超阈值时触发） | 前面已经露馅了 |
 
 完整规格见 [`docs/02-defense-layers.md`](docs/02-defense-layers.md)。
 
@@ -87,6 +87,23 @@ node-https      74fc12d4399034848f23564f342e65b9
 cd range && python -m tlsfront record --out ../fingerprints/local.yaml
 ```
 
+### 图片验证码：把"这个范式已经死了"做成可以跑的
+
+`static_image` 是服务端生成的扭曲字符图。它在大流量消费站点已基本绝迹，但在**政企与传统行业后台**（招投标、司法文书、工商、教务）仍大量存在——那正是相当一部分采集业务的实际目标。
+
+它为什么死了，靶场不靠断言，靠一条命令：
+
+```console
+$ cd range && python -m tools.captcha_dataset --count 5000 --out /tmp/ds --difficulty paranoid
+导出 5000 张（paranoid）到 /tmp/ds
+  耗时 23.6s，212 张/秒
+  共 128.1 MB，标签在文件名与 labels.jsonl 里
+```
+
+**结构性死穴：生成图像的程序同时知道答案。** 训练集是免费的，一万张不到一分钟，分布与线上完全一致。加难度不解决问题——攻击方的训练数据和你的生成器是同一个东西；而加难度会让**人类失败率涨得比机器快**。
+
+三档难度对应历史上的军备竞赛，也演示了这条路走到了哪：`lenient` 一眼可读，`strict` 要看一下，`paranoid` 已经接近人类可用性的上限。三档都挡不住自训模型。
+
 ### 两种响应模式
 
 | 模式 | 被拦时 | 用途 |
@@ -102,7 +119,7 @@ cd range && python -m tlsfront record --out ../fingerprints/local.yaml
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e range -e harness pytest
-.venv/bin/python -m pytest                              # 148 passed
+.venv/bin/python -m pytest                              # 168 passed
 ```
 
 ### 一、看成本决策表（附带工具）
@@ -160,7 +177,7 @@ HTTP 全 200、没有任何失败信号、归因栏是空的，而真值 0 条�
 | Profile | 组合 | 对应现实 |
 |---|---|---|
 | `open` | 全关 | 基线，测量纯采集成本本身 |
-| `legacy-gov` | L1 宽松 + L6 | 政企/传统行业后台 |
+| `legacy-gov` | L1 宽松 + L6 `static_image` | 政企/传统行业后台 |
 | `cdn-standard` | L1 + L2 | 挂了标准 CDN 防护的普通站点 |
 | `api-signed` | L1 + L2 + L3 | 国内主流内容平台 Web 端 |
 | `hardened` | 六层全开，评分形态 | 高价值目标 |
@@ -197,7 +214,8 @@ v0.1，靶场六层可用（含随机化 VM 挑战），附带的成本 harness 
 - **一个关于成本模型自身的发现**：几何任务让墙钟涨 1.8×，但按 CPU 计价的成本模型完全看不见（1.00×）——时间型防御对它是结构性盲区。已如实记入 `harness/README.md`
 - **交叉点分析**：`browser` 与 `signed` 是两条相反的经济路径（边际成本 vs 一次性逆向工时）。`browser` 加载整页约 800 KB 资产，边际成本实测是 `signed` 的约 48 倍。模型给出"采集量大到多少才值得逆向"的量化答案，且强烈依赖代理档位——datacenter 档约 8.5 亿条/年，residential 档约 1500 万条/年（代理越贵，逆向越早回本）
 - **tlsfront**：TLS 终结代理，用 MemoryBIO 在握手完成前截获 ClientHello 算 JA3，含 GREASE 剔除
-- 148 项测试，含端到端、跨语言（Python↔Node）VM 一致性比对、多客户端真实 TLS 指纹比对
+- **图片验证码**：L6 的 `static_image`，确定性渲染 + 三档难度，配数据集导出工具把"训练集免费"做成可跑的论证
+- 168 项测试，含端到端、跨语言（Python↔Node）VM 一致性比对、多客户端真实 TLS 指纹比对
 
 **未完成**
 - **引入真实代理延迟与失败率**。整页流量已建模（`browser` 加载约 800 KB 资产，边际成本实测约为 `signed` 的 48 倍），但页面权重是可调估计值、且未含代理延迟——这是交叉点数字的主要不确定来源
@@ -206,7 +224,6 @@ v0.1，靶场六层可用（含随机化 VM 挑战），附带的成本 harness 
 - 容器化 + cgroup 计量（当前用 `getrusage`，能透传捕获 chromium 的 CPU，但隔离不彻底，且只支持 Python 攻击实现）
 - LLM token 计量，用于接入 VLM 类攻击实现
 - `sign.js` 的混淆构建。当前可读，因此 `derived` 档的逆向难度被显著低估
-- L6 的 `static_image` 题型（需要图像渲染依赖）
 
 **已知限制**
 - 靶场状态存在进程内存，多 worker 部署会让频率统计和 nonce 重放表失效，默认单 worker 运行

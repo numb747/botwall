@@ -31,20 +31,7 @@ from app.layers import (
 # --- 构造工具 ---
 
 
-def make_probe(**overrides) -> Probe:
-    base = dict(
-        method="GET",
-        path="/api/items",
-        query={"limit": "20", "offset": "0"},
-        headers={},
-        cookies={},
-        body=b"",
-        client_ip="203.0.113.10",
-        received_at=time.time(),
-    )
-    base.update(overrides)
-    base["headers"] = {k.lower(): v for k, v in base["headers"].items()}
-    return Probe(**base)
+from conftest import build_probe as make_probe  # noqa: E402 —— 共用构造器
 
 
 def signed_headers(
@@ -471,10 +458,13 @@ def test_l6_slider_needs_position_and_trace(state):
     assert layer.inspect(probe, state).passed
 
 
-def test_l6_static_image_not_implemented(state):
+def test_l6_static_image_issues_a_picture(state):
+    """static_image 已实现。详细测试见 test_captcha_image.py。"""
     layer = CaptchaLayer(Strength.LENIENT, {"kind": "static_image"})
-    with pytest.raises(NotImplementedError):
-        layer.issue_challenge("s", state)
+    public = layer.issue_challenge("s", state)
+    assert public["kind"] == "static_image"
+    assert public["png_base64"]
+    assert "answer" not in public
 
 
 # --- Gate ---
